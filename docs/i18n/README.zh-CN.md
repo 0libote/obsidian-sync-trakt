@@ -150,13 +150,15 @@ npm run test:i18n  # 跑冒烟测试
 - [ ] 提交到 Obsidian 第三方插件目录
 - [ ] 更多 UI 翻译（ja / ko / fr / ...）按需增加
 
-## 🤝 上游致谢
+## 🤝 致谢
 
-本插件 fork 自 [**sarimabbas/traktr**](https://github.com/sarimabbas/traktr)（MIT 许可证）。核心同步引擎、frontmatter / 模板结构、tag-note 系统全部直接继承自上游项目。由衷感谢 [Sarim Abbas](https://github.com/sarimabbas) 的原始工作。
+本插件最初受 [sarimabbas/traktr](https://github.com/sarimabbas/traktr)（MIT 许可证）启发，从中获得了 Trakt OAuth 接入的最初脚手架。后续大量工作 —— 详细观看记录聚合、带翻译 fallback 链的元数据本地化、双语 UI、带限流和实时进度反馈的并发抓取、机器管理段落、翻译感知的模板渲染器、多语言文档体系 —— 已经把代码库重塑成了根本不同的架构。
+
+感谢 [Sarim Abbas](https://github.com/sarimabbas) 提供了最初的起点。原作的 MIT 版权声明完整保留在 [LICENSE](../../LICENSE) 中，与本项目自己的版权声明并列。
 
 ## 📄 许可证
 
-MIT —— 见 [LICENSE](../../LICENSE)。同时包含上游版权声明（Sarim Abbas）和本 fork 的版权声明（o1xhack），两份都生效。
+MIT —— 见 [LICENSE](../../LICENSE)。
 
 ---
 

@@ -150,13 +150,15 @@ Then copy `main.js`, `manifest.json`, `styles.css` to `<vault>/.obsidian/plugins
 - [ ] Submit to Obsidian Community Plugins directory
 - [ ] More plugin-UI translations (ja / ko / fr / ...) on demand
 
-## 🤝 Upstream
+## 🤝 Acknowledgements
 
-This plugin is a fork of [**sarimabbas/traktr**](https://github.com/sarimabbas/traktr) (MIT licensed). The core sync engine, frontmatter / template structure, and tag-note system are all directly inherited from that project. Substantial thanks to [Sarim Abbas](https://github.com/sarimabbas) for the original work.
+This plugin was originally inspired by [sarimabbas/traktr](https://github.com/sarimabbas/traktr) (MIT licensed), which provided the initial Trakt OAuth scaffolding. Substantial subsequent work — detailed watch-history aggregation, metadata localization with translation-fallback chains, bilingual UI, bounded-concurrency fetching with live progress reporting, machine-managed body sections, the translation-aware template renderer, multi-language docs — has reshaped most of the codebase into a fundamentally different architecture.
+
+Thanks to [Sarim Abbas](https://github.com/sarimabbas) for the starting point. The original work's MIT copyright notice is preserved verbatim in [LICENSE](LICENSE) alongside this project's own.
 
 ## 📄 License
 
-MIT — see [LICENSE](LICENSE). The upstream copyright (Sarim Abbas) and this fork's copyright (o1xhack) both apply.
+MIT — see [LICENSE](LICENSE).
 
 ---
 

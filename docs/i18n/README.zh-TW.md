@@ -150,13 +150,15 @@ npm run test:i18n  # 跑煙霧測試
 - [ ] 提交到 Obsidian 第三方外掛目錄
 - [ ] 更多 UI 翻譯（ja / ko / fr / ...）按需增加
 
-## 🤝 上游致謝
+## 🤝 致謝
 
-本外掛 fork 自 [**sarimabbas/traktr**](https://github.com/sarimabbas/traktr)（MIT 授權）。核心同步引擎、frontmatter / 範本結構、tag-note 系統全部直接繼承自上游專案。由衷感謝 [Sarim Abbas](https://github.com/sarimabbas) 的原始工作。
+本外掛最初受 [sarimabbas/traktr](https://github.com/sarimabbas/traktr)（MIT 授權）啟發，從中獲得了 Trakt OAuth 接入的最初腳手架。後續大量工作 —— 詳細觀看紀錄聚合、帶翻譯 fallback 鏈的元資料本地化、雙語 UI、帶限流和即時進度回饋的並發抓取、機器管理段落、翻譯感知的範本渲染器、多語言文件體系 —— 已經把程式碼庫重塑成了根本不同的架構。
+
+感謝 [Sarim Abbas](https://github.com/sarimabbas) 提供了最初的起點。原作的 MIT 版權聲明完整保留在 [LICENSE](../../LICENSE) 中，與本專案自己的版權聲明並列。
 
 ## 📄 授權
 
-MIT —— 見 [LICENSE](../../LICENSE)。同時包含上游版權聲明（Sarim Abbas）和本 fork 的版權聲明（o1xhack），兩份都生效。
+MIT —— 見 [LICENSE](../../LICENSE)。
 
 ---
 

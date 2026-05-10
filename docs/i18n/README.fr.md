@@ -150,13 +150,15 @@ Puis copiez `main.js`, `manifest.json`, `styles.css` dans `<vault>/.obsidian/plu
 - [ ] Soumission au répertoire Community Plugins d'Obsidian
 - [ ] Plus de traductions UI (ja / ko / fr / ...) selon la demande
 
-## 🤝 Amont
+## 🤝 Remerciements
 
-Ce plugin est un fork de [**sarimabbas/traktr**](https://github.com/sarimabbas/traktr) (licence MIT). Le moteur de synchronisation principal, la structure frontmatter / modèles, et le système tag-note sont tous directement hérités de ce projet. Merci beaucoup à [Sarim Abbas](https://github.com/sarimabbas) pour le travail original.
+Ce plugin s'est initialement inspiré de [sarimabbas/traktr](https://github.com/sarimabbas/traktr) (licence MIT), dont est issu le squelette initial pour la connexion OAuth à Trakt. Un travail substantiel ultérieur — agrégation détaillée de l'historique de visionnage, localisation des métadonnées avec chaînes de repli de traduction, interface bilingue, récupération concurrente bornée avec rapport de progression en direct, sections de corps gérées par la machine, moteur de templates conscient des traductions, système documentaire multilingue — a remodelé la majeure partie du code source en une architecture fondamentalement différente.
+
+Merci à [Sarim Abbas](https://github.com/sarimabbas) pour le point de départ. L'avis de copyright MIT de l'œuvre originale est préservé textuellement dans [LICENSE](../../LICENSE) aux côtés de celui de ce projet.
 
 ## 📄 Licence
 
-MIT — voir [LICENSE](../../LICENSE). Le copyright amont (Sarim Abbas) et celui de ce fork (o1xhack) s'appliquent tous deux.
+MIT — voir [LICENSE](../../LICENSE).
 
 ---
 

@@ -150,13 +150,15 @@ npm run test:i18n  # 스모크 테스트
 - [ ] Obsidian 커뮤니티 플러그인 디렉토리에 제출
 - [ ] 더 많은 UI 번역(ja / ko / fr / ...) 수요에 따라
 
-## 🤝 업스트림 감사
+## 🤝 감사의 말
 
-이 플러그인은 [**sarimabbas/traktr**](https://github.com/sarimabbas/traktr)(MIT 라이선스)의 포크입니다. 핵심 동기화 엔진, frontmatter / 템플릿 구조, tag-note 시스템은 모두 업스트림 프로젝트에서 직접 상속되었습니다. 원작에 대해 [Sarim Abbas](https://github.com/sarimabbas)에게 깊이 감사드립니다.
+이 플러그인은 원래 [sarimabbas/traktr](https://github.com/sarimabbas/traktr)(MIT 라이선스)에서 영감을 받아 Trakt OAuth 연결의 초기 스캐폴딩을 가져왔습니다. 이후 상당한 작업 — 상세한 시청 기록 집계, 번역 폴백 체인이 있는 메타데이터 현지화, 이중 언어 UI, 실시간 진행률 보고가 있는 동시성 제한 페칭, 머신 관리 본문 섹션, 번역 인식 템플릿 렌더러, 다국어 문서 체계 — 을 통해 코드베이스의 대부분이 근본적으로 다른 아키텍처로 재구성되었습니다.
+
+시작점을 제공해 준 [Sarim Abbas](https://github.com/sarimabbas)에게 감사드립니다. 원작의 MIT 저작권 고지는 이 프로젝트 자체의 고지와 함께 [LICENSE](../../LICENSE)에 그대로 보존됩니다.
 
 ## 📄 라이선스
 
-MIT — [LICENSE](../../LICENSE) 참조. 업스트림 저작권 표시(Sarim Abbas)와 이 포크의 저작권 표시(o1xhack)가 모두 적용됩니다.
+MIT — [LICENSE](../../LICENSE) 참조.
 
 ---
 

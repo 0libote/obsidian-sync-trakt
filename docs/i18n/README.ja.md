@@ -150,13 +150,15 @@ npm run test:i18n  # スモークテスト
 - [ ] Obsidian コミュニティプラグインディレクトリへの提出
 - [ ] さらなる UI 翻訳（ja / ko / fr / ...）需要に応じて
 
-## 🤝 上流への謝辞
+## 🤝 謝辞
 
-このプラグインは [**sarimabbas/traktr**](https://github.com/sarimabbas/traktr)（MIT ライセンス）のフォークです。コア同期エンジン、フロントマター / テンプレート構造、tag-note システムはすべて上流プロジェクトから直接継承しています。元の作品に対して [Sarim Abbas](https://github.com/sarimabbas) に深く感謝します。
+このプラグインは当初、[sarimabbas/traktr](https://github.com/sarimabbas/traktr)（MIT ライセンス）から着想を得て、Trakt OAuth 接続の初期足場を引き継ぎました。その後の大幅な作業 — 詳細な視聴履歴の集約、翻訳フォールバックチェーン付きメタデータローカライズ、バイリンガル UI、ライブ進捗レポート付き並列度制限フェッチ、機械管理ボディセクション、翻訳対応テンプレートレンダラー、多言語ドキュメント体系 — により、コードベースの大部分が根本的に異なるアーキテクチャに作り直されました。
+
+最初の出発点を提供してくれた [Sarim Abbas](https://github.com/sarimabbas) に感謝します。原作品の MIT 著作権表示は本プロジェクト独自の表示と並んで [LICENSE](../../LICENSE) に逐語的に保持されています。
 
 ## 📄 ライセンス
 
-MIT — [LICENSE](../../LICENSE) を参照。上流の著作権表示（Sarim Abbas）とこのフォークの著作権表示（o1xhack）の両方が適用されます。
+MIT — [LICENSE](../../LICENSE) を参照。
 
 ---
 
