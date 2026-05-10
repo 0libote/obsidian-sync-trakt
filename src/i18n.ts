@@ -51,6 +51,15 @@ const STRINGS = {
     en: "Please enter your client ID and secret first.",
     "zh-CN": "请先填写客户端 ID 和密钥。",
   },
+  "auth.sync.name": {
+    en: "Cross-device sync",
+    "zh-CN": "多设备同步",
+  },
+  "auth.sync.desc": {
+    en: "Auth state (Trakt tokens, TMDB key, all settings) is stored in this vault's plugin data folder and follows your vault sync. To share auth between Mac and mobile: enable 'Plugin data' in Obsidian Sync, or use any vault sync layer (Syncthing, iCloud + Advanced Data Protection, Cryptomator). The plugin doesn't store anything on a server.",
+    "zh-CN":
+      "授权状态（Trakt token、TMDB key、所有设置）保存在本 vault 的插件数据文件夹，跟随 vault 同步。要在 Mac 和手机间共享授权：在 Obsidian Sync 设置里勾选「Plugin data」，或使用 Syncthing、iCloud（开启 Advanced Data Protection）、Cryptomator 等任何 vault 同步层。本插件不在任何服务器存储数据。",
+  },
 
   // ── TMDB section ──
   "tmdb.heading": { en: "TMDB", "zh-CN": "TMDB" },

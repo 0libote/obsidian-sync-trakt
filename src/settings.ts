@@ -501,6 +501,15 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
     }
 
+    // Cross-device sync info — purely informational. The plugin doesn't
+    // implement any sync itself; it relies on whatever vault-sync layer the
+    // user already has (Obsidian Sync, Syncthing, iCloud, etc.). Surfacing
+    // this here saves users the question "do I need to log in on every
+    // device separately?".
+    new Setting(containerEl)
+      .setName(t("auth.sync.name"))
+      .setDesc(t("auth.sync.desc"));
+
     // ── TMDB (poster images) ──
     new Setting(containerEl).setName(t("tmdb.heading")).setHeading();
 
