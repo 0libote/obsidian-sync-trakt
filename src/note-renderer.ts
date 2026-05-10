@@ -6,6 +6,19 @@ import {
 } from "./settings";
 import { renderTemplate, toFrontmatter } from "./utils";
 
+/**
+ * Marker comments wrapping the auto-generated Watch History section in the
+ * note body. These let `updateManagedBodySections()` find and replace just
+ * that block on every sync — leaving the user's hand-written body content
+ * outside the markers untouched. We use Obsidian's native `%% ... %%`
+ * comment syntax so the markers are invisible in reading view.
+ */
+export const WATCH_HISTORY_MARKER_START = "%% trakt:watch-history:start %%";
+export const WATCH_HISTORY_MARKER_END = "%% trakt:watch-history:end %%";
+
+const WATCH_HISTORY_MARKER_RE =
+  /%% trakt:watch-history:start %%[\s\S]*?%% trakt:watch-history:end %%/;
+
 /** Format an ISO-8601 timestamp as `YYYY-MM-DD HH:MM` in the user's local
  * timezone. Trakt records `watched_at` in UTC, but a viewer cares about the
  * wall-clock time when they actually pressed play, which is local. */
@@ -16,10 +29,16 @@ function formatWatchTime(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** Render the full Watch History section (heading + bulleted list) for an
- * item, or "" if no detailed history was collected. The heading text
- * matches the saved templateLanguage so the section reads consistently with
- * the rest of the bundled template. */
+/**
+ * Render the full Watch History section (heading + bulleted list) for an
+ * item, wrapped in machine-managed markers. Returns "" when no detailed
+ * history was collected — the empty case is what makes `{{watch_history}}`
+ * collapse cleanly in default templates.
+ *
+ * The markers are essential: they let later syncs find this section in the
+ * body and replace its contents without touching anything else the user
+ * wrote.
+ */
 export function renderWatchHistorySection(
   item: NormalizedItem,
   settings: TraktrSettings,
@@ -29,7 +48,52 @@ export function renderWatchHistorySection(
   const heading = watchHistoryHeading(
     getEffectiveTemplateLanguage(settings),
   );
-  return `## ${heading}\n${list}`;
+  return `${WATCH_HISTORY_MARKER_START}\n## ${heading}\n${list}\n${WATCH_HISTORY_MARKER_END}`;
+}
+
+/**
+ * Update the managed Watch History section in an existing note body, in
+ * place. Behavior:
+ *
+ * - If markers are present in the content → replace what's between them
+ *   with a freshly rendered section (or with empty markers if there's no
+ *   data, so we don't leave a stale list around).
+ * - If markers are NOT present (e.g. note created with an older version
+ *   of this plugin, or user removed them) → append the section to the
+ *   end of the body, with a blank line separator.
+ * - If detailed watch history is disabled (`syncWatchedDetail = false`) →
+ *   leave the content untouched. We don't strip existing markers because
+ *   the user may simply have toggled detail off temporarily.
+ */
+export function updateManagedBodySections(
+  content: string,
+  item: NormalizedItem,
+  settings: TraktrSettings,
+): string {
+  if (!settings.syncWatchedDetail) return content;
+
+  const newSection = renderWatchHistorySection(item, settings);
+  const hasMarkers = WATCH_HISTORY_MARKER_RE.test(content);
+
+  if (hasMarkers) {
+    // Always replace between markers — even if newSection is empty, we
+    // want to clear stale data rather than keep yesterday's list around.
+    const replacement =
+      newSection ||
+      `${WATCH_HISTORY_MARKER_START}\n${WATCH_HISTORY_MARKER_END}`;
+    return content.replace(WATCH_HISTORY_MARKER_RE, replacement);
+  }
+
+  // No markers in content. Append only when we have data to show — no
+  // point inserting empty markers into a note that's never had history.
+  if (!newSection) return content;
+
+  // Preserve trailing newline behavior of the original content. If the
+  // body ended with a single trailing newline, our appended block ends
+  // with one too; multiple trailing newlines collapse to a single blank
+  // line before our section.
+  const trimmed = content.replace(/\n+$/, "");
+  return `${trimmed}\n\n${newSection}\n`;
 }
 
 /** Render only the bullet list (no heading) — useful for users who want to

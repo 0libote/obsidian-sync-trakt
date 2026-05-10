@@ -29,7 +29,11 @@ import {
 } from "./trakt-api";
 import { fetchMovieMetadata, fetchTvMetadata } from "./tmdb-api";
 import { ensureValidToken } from "./trakt-auth";
-import { renderNote, buildFrontmatterData } from "./note-renderer";
+import {
+  renderNote,
+  buildFrontmatterData,
+  updateManagedBodySections,
+} from "./note-renderer";
 import { sanitizeFilename, renderTemplate, parseFrontmatter } from "./utils";
 
 // ── Normalization helpers ──
@@ -637,6 +641,16 @@ export class SyncEngine {
                 }
               }
             );
+            // Body remains the user's territory — except for the
+            // machine-managed Watch History block, which the user
+            // explicitly opted into via syncWatchedDetail. Without this
+            // step, the watch_history list would only show whatever was
+            // current at note-CREATE time and never update afterwards.
+            if (this.settings.syncWatchedDetail) {
+              await this.app.vault.process(existingFile, (oldContent) =>
+                updateManagedBodySections(oldContent, item, this.settings),
+              );
+            }
           }
           result.updated++;
         }

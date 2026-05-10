@@ -16,6 +16,9 @@ import {
   renderNote,
   renderWatchHistorySection,
   renderWatchHistoryList,
+  updateManagedBodySections,
+  WATCH_HISTORY_MARKER_START,
+  WATCH_HISTORY_MARKER_END,
 } from "../src/note-renderer";
 import {
   pickTraktTranslation,
@@ -701,9 +704,9 @@ console.log(
   assertEq(renderWatchHistoryList(empty), "", "no detail → empty string");
 }
 
-// ── Test 15: renderWatchHistorySection chooses heading by template lang ───
+// ── Test 15: renderWatchHistorySection wraps content in markers ───────────
 console.log(
-  "\n[15] renderWatchHistorySection picks heading from templateLanguage",
+  "\n[15] renderWatchHistorySection wraps section with markers + lang heading",
 );
 {
   const show = makeMovie();
@@ -714,8 +717,16 @@ console.log(
 
   const sectionEn = renderWatchHistorySection(show, withSettings({ templateLanguage: "" }));
   assertTrue(
-    sectionEn.startsWith("## Watch History\n"),
-    "default templateLanguage → 'Watch History'",
+    sectionEn.startsWith(WATCH_HISTORY_MARKER_START + "\n"),
+    "section starts with start marker",
+  );
+  assertTrue(
+    sectionEn.endsWith("\n" + WATCH_HISTORY_MARKER_END),
+    "section ends with end marker",
+  );
+  assertTrue(
+    sectionEn.includes("## Watch History\n"),
+    "EN heading inside markers",
   );
 
   const sectionZh = renderWatchHistorySection(
@@ -723,8 +734,8 @@ console.log(
     withSettings({ templateLanguage: "zh-CN" }),
   );
   assertTrue(
-    sectionZh.startsWith("## 观看记录\n"),
-    "zh-CN templateLanguage → '观看记录'",
+    sectionZh.includes("## 观看记录\n"),
+    "zh-CN heading inside markers",
   );
 
   const sectionTw = renderWatchHistorySection(
@@ -732,17 +743,17 @@ console.log(
     withSettings({ templateLanguage: "zh-TW" }),
   );
   assertTrue(
-    sectionTw.startsWith("## 觀看紀錄\n"),
-    "zh-TW templateLanguage → '觀看紀錄'",
+    sectionTw.includes("## 觀看紀錄\n"),
+    "zh-TW heading inside markers",
   );
 
-  // Empty data → empty section (no orphan heading)
+  // Empty data → empty section (no orphan heading, no orphan markers)
   const empty = makeMovie();
   empty.type = "show";
   assertEq(
     renderWatchHistorySection(empty, withSettings({ templateLanguage: "zh-CN" })),
     "",
-    "no detail → empty section (no orphan heading)",
+    "no detail → empty section (no orphan heading, no orphan markers)",
   );
 }
 
@@ -760,6 +771,189 @@ console.log("\n[16] All bundled default templates include {{watch_history}}");
     assertTrue(
       tpl.includes("{{watch_history}}"),
       `${name} template contains {{watch_history}}`,
+    );
+  }
+}
+
+// ── Test 17: updateManagedBodySections — the in-place body update ─────────
+console.log("\n[17] updateManagedBodySections covers replace / append / off");
+{
+  function showWithEpisodes(episodes: Array<{ season: number; episode: number; watched_at: string[]; }>): NormalizedItem {
+    const show = makeMovie();
+    show.type = "show";
+    show.watch_history_episodes = episodes;
+    return show;
+  }
+
+  // Case 1: existing markers → replace between them, keep surrounding body
+  {
+    const oldBody = `Some user-written prose above the section.
+
+%% trakt:watch-history:start %%
+## Watch History
+- S1E1 — 2024-01-15 21:30
+%% trakt:watch-history:end %%
+
+User notes below — should not be touched.`;
+    const item = showWithEpisodes([
+      { season: 1, episode: 1, watched_at: ["2024-01-15T21:30:00.000Z"] },
+      { season: 1, episode: 2, watched_at: ["2024-01-16T22:00:00.000Z"] },
+    ]);
+    const updated = updateManagedBodySections(
+      oldBody,
+      item,
+      withSettings({ syncWatchedDetail: true }),
+    );
+    assertTrue(
+      updated.includes("Some user-written prose above the section."),
+      "preserves prose ABOVE the markers",
+    );
+    assertTrue(
+      updated.includes("User notes below — should not be touched."),
+      "preserves prose BELOW the markers",
+    );
+    assertTrue(
+      updated.includes("- S1E2"),
+      "section now contains the new S1E2 line",
+    );
+    // Original body had 1 episode line; new body should have 2 within markers
+    const between = updated
+      .split(WATCH_HISTORY_MARKER_START)[1]
+      ?.split(WATCH_HISTORY_MARKER_END)[0] ?? "";
+    assertTrue(
+      between.includes("- S1E1") && between.includes("- S1E2"),
+      "both episodes are inside the markers",
+    );
+    assertTrue(
+      !updated.includes("S1E1 — 2024-01-15 21:30\n%% trakt:watch-history:end %%") ||
+      updated.match(/%% trakt:watch-history:start %%/g)?.length === 1,
+      "exactly one set of markers (no duplication)",
+    );
+  }
+
+  // Case 2: no markers in body → append at end with blank-line separator
+  {
+    const oldBody = `User wrote a note here.
+
+No watch history section yet.`;
+    const item = showWithEpisodes([
+      { season: 2, episode: 5, watched_at: ["2024-04-02T20:00:00.000Z"] },
+    ]);
+    const updated = updateManagedBodySections(
+      oldBody,
+      item,
+      withSettings({ syncWatchedDetail: true }),
+    );
+    assertTrue(
+      updated.startsWith("User wrote a note here."),
+      "original body preserved at the start",
+    );
+    assertTrue(
+      updated.includes(WATCH_HISTORY_MARKER_START),
+      "start marker appended",
+    );
+    assertTrue(
+      updated.includes(WATCH_HISTORY_MARKER_END),
+      "end marker appended",
+    );
+    assertTrue(
+      updated.includes("- S2E5"),
+      "S2E5 line present in appended section",
+    );
+  }
+
+  // Case 3: syncWatchedDetail = false → leave content alone, even if data exists
+  {
+    const oldBody = "User content. Should be unchanged.";
+    const item = showWithEpisodes([
+      { season: 1, episode: 1, watched_at: ["2024-01-15T21:30:00.000Z"] },
+    ]);
+    const updated = updateManagedBodySections(
+      oldBody,
+      item,
+      withSettings({ syncWatchedDetail: false }),
+    );
+    assertEq(
+      updated,
+      oldBody,
+      "content unchanged when syncWatchedDetail is off",
+    );
+  }
+
+  // Case 4: markers exist but item has no history → markers cleared to empty
+  // (we'd rather show an empty list than yesterday's stale list)
+  {
+    const oldBody = `Some prose.
+
+%% trakt:watch-history:start %%
+## Watch History
+- S1E1 — 2024-01-15 21:30
+%% trakt:watch-history:end %%
+
+After.`;
+    const item = showWithEpisodes([]);
+    const updated = updateManagedBodySections(
+      oldBody,
+      item,
+      withSettings({ syncWatchedDetail: true }),
+    );
+    assertTrue(
+      updated.includes("Some prose."),
+      "above-marker prose preserved",
+    );
+    assertTrue(
+      updated.includes("After."),
+      "below-marker prose preserved",
+    );
+    assertTrue(
+      updated.includes(`${WATCH_HISTORY_MARKER_START}\n${WATCH_HISTORY_MARKER_END}`),
+      "markers collapsed to empty pair",
+    );
+    assertTrue(
+      !updated.includes("- S1E1"),
+      "stale episode line cleared",
+    );
+  }
+
+  // Case 5: no markers AND no data → no-op (don't append empty markers)
+  {
+    const oldBody = "Just some note content with no history.";
+    const item = showWithEpisodes([]);
+    const updated = updateManagedBodySections(
+      oldBody,
+      item,
+      withSettings({ syncWatchedDetail: true }),
+    );
+    assertEq(
+      updated,
+      oldBody,
+      "no-op when no data and no existing markers",
+    );
+  }
+
+  // Case 6: movie path — flat list rather than S/E
+  {
+    const movie = makeMovie();
+    movie.watch_history_movie = [
+      "2024-06-10T22:30:00.000Z",
+      "2025-02-14T20:15:00.000Z",
+    ];
+    const oldBody = "Note body.\n";
+    const updated = updateManagedBodySections(
+      oldBody,
+      movie,
+      withSettings({ syncWatchedDetail: true }),
+    );
+    const between = updated
+      .split(WATCH_HISTORY_MARKER_START)[1]
+      ?.split(WATCH_HISTORY_MARKER_END)[0] ?? "";
+    assertTrue(
+      between.split("\n").filter((l) => l.startsWith("- ")).length === 2,
+      "movie section has 2 timestamp lines",
+    );
+    assertTrue(
+      !between.includes("S1E"),
+      "movie section uses flat timestamps, no S/E prefix",
     );
   }
 }
