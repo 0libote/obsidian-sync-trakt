@@ -43,11 +43,7 @@ export default class TraktrPlugin extends Plugin {
           );
           return;
         }
-        this.updateStatusBar(
-          getTranslator(this.settings.uiLanguage)("status.syncing"),
-        );
-        await this.syncEngine.sync((msg) => this.updateStatusBar(msg));
-        this.updateStatusBar("");
+        await this.runSyncWithProgress();
       },
     });
 
@@ -86,14 +82,40 @@ export default class TraktrPlugin extends Plugin {
     // Sync on startup (delayed to let Obsidian finish loading)
     if (this.settings.syncOnStartup && this.settings.accessToken) {
       window.setTimeout(() => {
-        void (async () => {
-          this.updateStatusBar(
-            getTranslator(this.settings.uiLanguage)("status.syncing"),
-          );
-          await this.syncEngine.sync((msg) => this.updateStatusBar(msg));
-          this.updateStatusBar("");
-        })();
+        void this.runSyncWithProgress();
       }, 5000);
+    }
+  }
+
+  /**
+   * Run a sync and surface live progress to the user. Drives BOTH:
+   *   - the status bar (visible on desktop only — Obsidian's plugin API
+   *     doesn't render status bar items on iOS / Android)
+   *   - a persistent Notice (visible on every platform) — created with
+   *     `new Notice(msg, 0)` so it stays up until we call `.hide()`,
+   *     then `.setMessage()` updates the same notice in place rather
+   *     than spamming a fresh notice for every progress tick.
+   *
+   * The Notice is the only visible feedback channel on mobile. Without
+   * it, tapping "Traktr: Sync" on iPhone looked like nothing was
+   * happening for the entire duration of the sync.
+   */
+  private async runSyncWithProgress(): Promise<void> {
+    const tNow = getTranslator(this.settings.uiLanguage);
+    const initialMsg = tNow("status.syncing");
+    const progressNotice = new Notice(
+      `${tNow("status.prefix")}${initialMsg}`,
+      0,
+    );
+    this.updateStatusBar(initialMsg);
+    try {
+      await this.syncEngine.sync((msg) => {
+        this.updateStatusBar(msg);
+        progressNotice.setMessage(`${tNow("status.prefix")}${msg}`);
+      });
+    } finally {
+      progressNotice.hide();
+      this.updateStatusBar("");
     }
   }
 
@@ -131,14 +153,10 @@ export default class TraktrPlugin extends Plugin {
       this.autoSyncIntervalId = window.setInterval(() => {
         void (async () => {
           try {
-            // Auto-sync also drives the status bar so a long background sync
-            // doesn't look like nothing is happening — same callback shape
-            // as the manual command, no UI surprises.
-            this.updateStatusBar(
-              getTranslator(this.settings.uiLanguage)("status.syncing"),
-            );
-            await this.syncEngine.sync((msg) => this.updateStatusBar(msg));
-            this.updateStatusBar("");
+            // Auto-sync uses the same progress channel as the manual command.
+            // Visible on every platform via the persistent Notice — important
+            // on mobile where the status bar isn't rendered.
+            await this.runSyncWithProgress();
           } catch (e) {
             console.error("Trakt auto-sync failed:", e);
             this.updateStatusBar("");
