@@ -98,18 +98,29 @@ git push origin "$VERSION"
 # 8. Create the GitHub Release locally (draft, with the three Obsidian assets)
 if [ -z "${RELEASE_SKIP_GH:-}" ]; then
   echo "▶ Creating draft GitHub Release..."
+  # Resolve the GitHub repo from the `origin` remote URL explicitly. Without
+  # this, `gh` picks one of the configured remotes (often upstream when the
+  # fork was created with `git remote add upstream …`), and refuses to create
+  # the release because the tag isn't on that repo.
+  ORIGIN_URL=$(git remote get-url origin 2>/dev/null || true)
+  REPO=$(echo "$ORIGIN_URL" \
+    | sed -E 's#(git@github\.com:|https://github\.com/)([^/]+/[^.]+)(\.git)?#\2#' \
+    | sed 's#\.git$##')
+  if [ -z "$REPO" ]; then
+    echo "Error: couldn't parse a GitHub owner/repo from origin URL: $ORIGIN_URL"
+    echo "Skipping the gh release create step. Run manually:"
+    echo "  gh release create $VERSION -R <owner>/<repo> --draft main.js manifest.json styles.css"
+    exit 1
+  fi
+
   gh release create "$VERSION" \
+    -R "$REPO" \
     --title="$VERSION" \
     --draft \
     main.js manifest.json styles.css
 
-  REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
-  if [ -n "$REPO" ]; then
-    echo "✓ Done. Edit + publish the draft at:"
-    echo "   https://github.com/$REPO/releases"
-  else
-    echo "✓ Done. Edit + publish the draft from the GitHub Releases page."
-  fi
+  echo "✓ Done. Edit + publish the draft at:"
+  echo "   https://github.com/$REPO/releases"
 else
   echo "✓ Tag pushed. Skipping local release-create (RELEASE_SKIP_GH=1) —"
   echo "  the .github/workflows/release.yml workflow will create the draft."
