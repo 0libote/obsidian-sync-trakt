@@ -1,5 +1,7 @@
 # Obsidian Sync Trakt — User Manual
 
+> 🌐 **English** · [简体中文](i18n/MANUAL.zh-CN.md) · [繁體中文](i18n/MANUAL.zh-TW.md) · [日本語](i18n/MANUAL.ja.md)
+
 ## 1. What it does
 
 This plugin pulls your [Trakt.tv](https://trakt.tv) data and creates one

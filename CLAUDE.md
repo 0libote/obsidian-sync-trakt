@@ -24,8 +24,10 @@ checked in.
 
 ## Documentation
 
-- [doc/DEVELOPER.md](doc/DEVELOPER.md) — architecture, data flow diagrams, how to extend
-- [doc/MANUAL.md](doc/MANUAL.md) — settings reference, frontmatter fields, template variables
+- [docs/DEVELOPER.md](docs/DEVELOPER.md) — architecture, data flow diagrams, how to extend
+- [docs/MANUAL.md](docs/MANUAL.md) — settings reference, frontmatter fields, template variables
+- [docs/SETUP.md](docs/SETUP.md) — Trakt + TMDB API key creation, first-time configuration
+- [docs/i18n/](docs/i18n/) — translations of README / SETUP / MANUAL
 
 ## Key Conventions
 

@@ -1,42 +1,25 @@
 # Obsidian Sync Trakt
 
-> [English](README.md) · [简体中文](docs/i18n/README.zh-CN.md)
+[![Latest release](https://img.shields.io/github/v/release/o1xhack/obsidian-sync-trakt?include_prereleases&label=release&color=7c3aed)](https://github.com/o1xhack/obsidian-sync-trakt/releases)
+[![Total downloads](https://img.shields.io/github/downloads/o1xhack/obsidian-sync-trakt/total?color=7c3aed)](https://github.com/o1xhack/obsidian-sync-trakt/releases)
+[![License](https://img.shields.io/github/license/o1xhack/obsidian-sync-trakt?color=7c3aed)](LICENSE)
+[![Min Obsidian version](https://img.shields.io/badge/obsidian-1.4.0%2B-7c3aed)](https://obsidian.md)
 
-Obsidian plugin that syncs your [Trakt.tv](https://trakt.tv) data — watchlist,
-watch history, favorites, ratings — into Markdown notes, with **detailed
-per-episode watch timestamps** and **metadata localization** (Chinese,
-Japanese, etc.).
+**Turn your [Trakt.tv](https://trakt.tv) watch history into a richly localized Markdown library — with per-episode timestamps, metadata in your language, and a bilingual UI.**
 
-## Features
+> 🌐 **English** · [简体中文](docs/i18n/README.zh-CN.md) · [繁體中文](docs/i18n/README.zh-TW.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Deutsch](docs/i18n/README.de.md) · [Español](docs/i18n/README.es.md) · [Italiano](docs/i18n/README.it.md)
 
-- One Markdown note per movie or TV show, with structured frontmatter, a
-  customizable body template, and optional tags
-- Syncs from four Trakt sources: **watchlist**, **watch history**,
-  **favorites**, **ratings**. Multiple sources merge into a single note per
-  item
-- **Detailed watch history** — opt in to fetch per-episode (or per-movie)
-  watch timestamps from Trakt's `/sync/history` endpoint and render them
-  inline in the note body. See [`Watch history`](#watch-history-detailed)
-- **Metadata localization** — translate `title`, `overview`, `tagline`,
-  `genres` via TMDB (or Trakt translations as fallback). English originals
-  are preserved in `*_original_*` frontmatter fields. Tags always stay in
-  English so existing Dataview queries keep working
-- **Bilingual UI** — settings tab, command palette, and notice popups
-  available in **English** or **简体中文**
-- **Translated default templates** — bundled note templates in English,
-  Simplified Chinese (`zh-CN`), and Traditional Chinese (`zh-TW` / `zh-HK`)
-- Optional poster images via TMDB
-- Frontmatter-only updates preserve any of your own edits to a synced note's
-  body
-- Auto-sync on a configurable interval, and sync on startup
-- Tag notes support (an alternative to inline tags)
+<!-- screenshot: hero -->
 
-## Watch history (detailed)
+## ✨ Why?
 
-When **Sync watch history (detailed)** is enabled in settings, the plugin
-queries Trakt's `/sync/history` endpoint and aggregates every watch event
-into the note body. The default templates render this inline — between the
-`Trakt Status` block and `Links`:
+- **Detailed watch history** — exactly which episode you watched at what time, including re-watches, kept in sync as you keep watching
+- **Localized metadata** — translate titles / overviews / taglines / genres via TMDB; English originals always preserved alongside
+- **Bilingual UI** — settings, commands, and notices in English or 简体中文; bundled note templates in en / zh-CN / zh-TW
+
+## 🎬 Detailed watch history
+
+When **Sync watch history (detailed)** is enabled, the plugin queries Trakt's `/sync/history` endpoint and inlines per-episode (or per-movie) timestamps into the note body — and keeps that block updated as you watch new episodes:
 
 ```markdown
 ## Watch History
@@ -46,63 +29,85 @@ into the note body. The default templates render this inline — between the
 - S2E1 — 2024-04-02 20:00
 ```
 
-For movies, it lists every watch timestamp on its own line. Heavy users with
-hundreds of shows / thousands of episodes should expect the first sync to
-take a few minutes — the endpoint is paginated at 100 entries / page.
+Re-watches are listed comma-separated; episodes sort by season then episode number. The block is wrapped in `%% trakt:watch-history %%` markers — the plugin updates only what's between the markers, so any hand-written notes elsewhere in the body are never touched.
 
-Detailed mode is **off by default**. The lighter "summary only" mode (just
-`plays` count and `last_watched_at`) is still available via the original
-**Sync watch history** toggle.
+<!-- screenshot: watch-history -->
 
-## Requirements
+## 🌐 Metadata localization
 
-- A [Trakt.tv](https://trakt.tv) account and an OAuth application
-  ([trakt.tv/oauth/applications](https://trakt.tv/oauth/applications), set
-  redirect URI to `urn:ietf:wg:oauth:2.0:oob`)
-- A [TMDB](https://themoviedb.org) API key — optional, but required for
-  poster images and recommended for metadata localization
-  ([themoviedb.org/settings/api](https://www.themoviedb.org/settings/api))
+Set **Metadata language** to your preference and synced notes get title, overview, tagline, and genres translated via TMDB (with Trakt's translation endpoint as a fallback when no TMDB key is configured). English originals stay in `trakt_original_*` frontmatter fields:
 
-## Installation
+```yaml
+trakt_title: 黑暗骑士
+trakt_original_title: The Dark Knight
+trakt_genres:
+  - 动作
+  - 犯罪
+  - 剧情
+trakt_original_genres:
+  - Action
+  - Crime
+  - Drama
+trakt_metadata_language: zh-CN
+```
 
-### Obsidian Community Plugins *(placeholder — pending submission)*
+Tags and tag-note paths always stay in English — your existing Dataview queries keep working unchanged.
 
-> ⚠️ **Not yet listed.** Once this plugin is accepted into Obsidian's
-> official Community Plugins directory (and equivalent third-party
-> communities such as the Chinese Obsidian community / 红天社区), this
-> will be the recommended install path.
+<!-- screenshot: metadata-localization -->
 
-Steps once it's listed:
+## 🌍 Bilingual UI + translated templates
 
-1. Open Obsidian → Settings → Community plugins → Browse
-2. Search for `Obsidian Sync Trakt`
-3. Click **Install**, then **Enable**
+The settings tab, command palette, and notice popups speak both **English** and **简体中文**. Bundled note templates ship in English, Simplified Chinese (`zh-CN`), and Traditional Chinese (`zh-TW` / `zh-HK`); other language codes fall back to the English template — customize manually if you want a different language.
 
-Until then, use BRAT below.
+<!-- screenshot: bilingual-ui -->
 
-### BRAT (recommended, current method)
+## 🔄 Cross-device sync
 
-[BRAT](https://github.com/TfTHacker/obsidian42-brat) lets Obsidian install
-and auto-update plugins from arbitrary GitHub repos. Steps:
+Auth state — Trakt tokens, TMDB key, all settings — lives in `<vault>/.obsidian/plugins/obsidian-sync-trakt/data.json` and follows your vault-sync layer. Configure auth once on Mac, share with iPhone via Obsidian Sync (with `Plugin data` enabled), Syncthing, iCloud + Advanced Data Protection, or Cryptomator. The plugin doesn't store anything on a server.
 
-1. Install the **Obsidian42 - BRAT** plugin from Community Plugins
-2. Open Settings → BRAT → **Add a beta plugin for testing**
-3. Paste the repo path:
+## 🚀 Quick start
+
+1. Install via [BRAT](https://github.com/TfTHacker/obsidian42-brat) → **Add a beta plugin for testing** → `o1xhack/obsidian-sync-trakt`
+2. Settings → **Obsidian Sync Trakt** → fill your Trakt + TMDB API keys ([SETUP guide](docs/SETUP.md))
+3. Command palette → **Traktr: Sync**
+
+## 📦 Install
+
+<details>
+<summary><b>BRAT (recommended)</b></summary>
+
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) installs and auto-updates plugins from arbitrary GitHub repos.
+
+1. Install **Obsidian42 - BRAT** from Community Plugins
+2. Settings → BRAT → **Add a beta plugin for testing**
+3. Paste:
    ```
    o1xhack/obsidian-sync-trakt
    ```
-4. Click **Add Plugin**. BRAT will install the latest release and keep it
-   updated whenever a new tag is pushed.
-5. Settings → Community plugins → enable **Obsidian Sync Trakt**
+4. **Add Plugin** → enable in Settings → Community plugins
 
-### Manual install
+BRAT will check for updates whenever Obsidian launches and pull new releases automatically.
 
-1. Download the latest `main.js`, `manifest.json`, `styles.css` from
-   [Releases](https://github.com/o1xhack/obsidian-sync-trakt/releases)
-2. Place them in `<your-vault>/.obsidian/plugins/obsidian-sync-trakt/`
+</details>
+
+<details>
+<summary><b>Manual</b></summary>
+
+1. Download `main.js`, `manifest.json`, `styles.css` from the [latest release](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest)
+2. Place all three files in `<your-vault>/.obsidian/plugins/obsidian-sync-trakt/`
 3. Settings → Community plugins → enable **Obsidian Sync Trakt**
 
-### Building from source
+</details>
+
+<details>
+<summary><b>Obsidian Community Plugins (pending)</b></summary>
+
+> ⚠️ Not yet listed in Obsidian's official Community Plugins directory. Once accepted, this will become the recommended path. Until then, use BRAT above.
+
+</details>
+
+<details>
+<summary><b>Build from source</b></summary>
 
 ```bash
 git clone https://github.com/o1xhack/obsidian-sync-trakt.git
@@ -113,31 +118,36 @@ npm run lint
 npm run test:i18n  # smoke tests
 ```
 
-Then copy `main.js`, `manifest.json`, `styles.css` to
-`<vault>/.obsidian/plugins/obsidian-sync-trakt/`.
+Then copy `main.js`, `manifest.json`, `styles.css` to `<vault>/.obsidian/plugins/obsidian-sync-trakt/`.
 
-## Documentation
+</details>
 
-- [doc/MANUAL.md](doc/MANUAL.md) — full settings reference, frontmatter
-  fields, template variables, sync behavior
-- [doc/DEVELOPER.md](doc/DEVELOPER.md) — architecture overview, data flow,
-  how to extend
-- [docs/i18n/](docs/i18n/) — translated copies of this README
+## 📚 Documentation
 
-## Upstream attribution
+| Doc | Purpose |
+|---|---|
+| [SETUP](docs/SETUP.md) | Trakt + TMDB API key creation, first-time configuration, troubleshooting |
+| [MANUAL](docs/MANUAL.md) | Full settings reference, frontmatter fields, template variables, sync behavior |
+| [DEVELOPER](docs/DEVELOPER.md) | Architecture overview, data flow, how to extend (English only) |
+| [docs/i18n/](docs/i18n/) | Translations of README / SETUP / MANUAL into 8 additional languages |
 
-This plugin is a fork of
-[**sarimabbas/traktr**](https://github.com/sarimabbas/traktr) (MIT
-licensed). The core sync engine, frontmatter / template structure, and
-tag-note system are all directly inherited from that project. Substantial
-thanks to [Sarim Abbas](https://github.com/sarimabbas) for the original
-work.
+## 🗺️ Roadmap
 
-## License
+- [x] Detailed per-episode watch-history sync
+- [x] Metadata localization (TMDB + Trakt translations fallback)
+- [x] Bilingual plugin UI (en + zh-CN)
+- [x] Translated default note templates (en + zh-CN + zh-TW)
+- [ ] TMDB metadata cache — skip re-fetching on language switch
+- [ ] Submit to Obsidian Community Plugins directory
+- [ ] More plugin-UI translations (ja / ko / fr / ...) on demand
 
-MIT — see [LICENSE](LICENSE). The upstream copyright (Sarim Abbas) and
-this fork's copyright (o1xhack) both apply; both notices are reproduced
-verbatim in the LICENSE file.
+## 🤝 Upstream
+
+This plugin is a fork of [**sarimabbas/traktr**](https://github.com/sarimabbas/traktr) (MIT licensed). The core sync engine, frontmatter / template structure, and tag-note system are all directly inherited from that project. Substantial thanks to [Sarim Abbas](https://github.com/sarimabbas) for the original work.
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE). The upstream copyright (Sarim Abbas) and this fork's copyright (o1xhack) both apply.
 
 ---
 
