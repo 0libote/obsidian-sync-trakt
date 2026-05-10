@@ -97,6 +97,23 @@ export interface TraktRatingItem {
   show?: TraktShow;
 }
 
+/** Single entry from `/sync/history` — one row per individual watch event.
+ * Re-watches show up as multiple entries with the same movie/episode ids. */
+export interface TraktHistoryItem {
+  id: number;
+  watched_at: string;
+  action: string;
+  type: "episode" | "movie";
+  episode?: {
+    season: number;
+    number: number;
+    title?: string;
+    ids: { trakt: number; tvdb?: number; imdb?: string; tmdb?: number };
+  };
+  show?: TraktShow;
+  movie?: TraktMovie;
+}
+
 export interface TraktDeviceCodeResponse {
   device_code: string;
   user_code: string;
@@ -130,6 +147,17 @@ export interface TmdbTvResponse {
 
 export type ItemType = "movie" | "show";
 
+/** Per-episode entry in a show's detailed watch history. `watched_at` holds
+ * every timestamp this episode was watched, in chronological order; same
+ * episode watched twice → two strings. Episode title is best-effort (Trakt
+ * may not include it on every history endpoint response). */
+export interface EpisodeWatchHistory {
+  season: number;
+  episode: number;
+  title?: string;
+  watched_at: string[];
+}
+
 export interface NormalizedItem {
   type: ItemType;
   title: string;
@@ -153,6 +181,13 @@ export interface NormalizedItem {
   first_aired?: string;
   // TMDB poster
   poster_url?: string;
+  // Originals (always English from Trakt). Surface-level fields above may be
+  // overridden by translations when metadataLanguage is set; these always
+  // hold the source-language values so tags and {{original_*}} stay stable.
+  originalTitle: string;
+  originalOverview: string;
+  originalTagline?: string;
+  originalGenres: string[];
   // Source flags (populated during merge)
   watchlist?: boolean;
   watchlist_added_at?: string;
@@ -160,6 +195,12 @@ export interface NormalizedItem {
   plays?: number;
   last_watched_at?: string;
   episodes_watched?: number;
+  // Detailed watch history — populated only when settings.syncWatchedDetail is
+  // on AND this item appears in /sync/history. Movies use watch_history_movie
+  // (every watched_at timestamp); shows use watch_history_episodes (per-S/E
+  // grouping with one or more timestamps each).
+  watch_history_movie?: string[];
+  watch_history_episodes?: EpisodeWatchHistory[];
   favorite?: boolean;
   favorited_at?: string;
   my_rating?: number;

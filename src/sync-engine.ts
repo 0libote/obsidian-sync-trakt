@@ -1,17 +1,21 @@
 import { App, Notice, TFile, TFolder, normalizePath } from "obsidian";
 import type { TraktrSettings } from "./settings";
+import { getEffectiveMetadataLanguage } from "./settings";
+import { getTranslator } from "./i18n";
 import type {
   TraktWatchlistItem,
   TraktWatchedMovieItem,
   TraktWatchedShowItem,
   TraktFavoriteItem,
   TraktRatingItem,
+  TraktHistoryItem,
   NormalizedItem,
   SyncResult,
   TraktMovie,
   TraktShow,
   TraktIds,
   ItemType,
+  EpisodeWatchHistory,
 } from "./types";
 import {
   fetchWatchlist,
@@ -19,8 +23,11 @@ import {
   fetchWatchedShows,
   fetchFavorites,
   fetchRatings,
+  fetchHistory,
+  fetchTraktTranslations,
+  pickTraktTranslation,
 } from "./trakt-api";
-import { fetchMoviePosterUrl, fetchTvPosterUrl } from "./tmdb-api";
+import { fetchMovieMetadata, fetchTvMetadata } from "./tmdb-api";
 import { ensureValidToken } from "./trakt-auth";
 import { renderNote, buildFrontmatterData } from "./note-renderer";
 import { sanitizeFilename, renderTemplate, parseFrontmatter } from "./utils";
@@ -28,13 +35,15 @@ import { sanitizeFilename, renderTemplate, parseFrontmatter } from "./utils";
 // ── Normalization helpers ──
 
 function baseFromMovie(m: TraktMovie): NormalizedItem {
+  const overview = m.overview || "";
+  const genres = m.genres || [];
   return {
     type: "movie",
     title: m.title,
     year: m.year,
     ids: m.ids,
-    overview: m.overview || "",
-    genres: m.genres || [],
+    overview,
+    genres,
     runtime: m.runtime || 0,
     rating: m.rating || 0,
     votes: m.votes || 0,
@@ -44,17 +53,23 @@ function baseFromMovie(m: TraktMovie): NormalizedItem {
     status: m.status || "",
     tagline: m.tagline,
     released: m.released,
+    originalTitle: m.title,
+    originalOverview: overview,
+    originalTagline: m.tagline,
+    originalGenres: [...genres],
   };
 }
 
 function baseFromShow(s: TraktShow): NormalizedItem {
+  const overview = s.overview || "";
+  const genres = s.genres || [];
   return {
     type: "show",
     title: s.title,
     year: s.year,
     ids: s.ids,
-    overview: s.overview || "",
-    genres: s.genres || [],
+    overview,
+    genres,
     runtime: s.runtime || 0,
     rating: s.rating || 0,
     votes: s.votes || 0,
@@ -65,11 +80,125 @@ function baseFromShow(s: TraktShow): NormalizedItem {
     network: s.network,
     aired_episodes: s.aired_episodes,
     first_aired: s.first_aired,
+    originalTitle: s.title,
+    originalOverview: overview,
+    originalGenres: [...genres],
   };
+}
+
+/**
+ * Apply a translation overlay to an item in place. Empty strings are treated
+ * as "no translation" — TMDB returns "" rather than null when a field has no
+ * translation in the requested language. originalTitle / originalOverview /
+ * originalTagline / originalGenres are populated by base*() and never
+ * overwritten here, so they always hold the source-language values.
+ */
+function applyTranslation(
+  item: NormalizedItem,
+  translation: {
+    title?: string;
+    overview?: string;
+    tagline?: string;
+    genres?: string[];
+  },
+): void {
+  if (translation.title) item.title = translation.title;
+  if (translation.overview) item.overview = translation.overview;
+  if (translation.tagline) item.tagline = translation.tagline;
+  if (translation.genres && translation.genres.length > 0) {
+    item.genres = translation.genres;
+  }
 }
 
 function itemKey(type: ItemType, traktId: number): string {
   return `${type}:${traktId}`;
+}
+
+// ── Watch history aggregation ──
+//
+// Both helpers walk a /sync/history page and group its rows by item id. They
+// only ATTACH timestamps to items already present in the merged map — so an
+// item the user has watched but doesn't have via watchlist/watched/favorite/
+// rating won't accidentally get a note created. (In practice anyone calling
+// fetchHistory has syncWatched on, which already populates the map from
+// `/sync/watched/*`.)
+
+function chronologicalSort(timestamps: string[]): string[] {
+  // ISO-8601 strings sort lexicographically the same as chronologically when
+  // they all share the same offset (Trakt uses UTC `Z`), so a plain string
+  // sort is safe and avoids new Date() per element.
+  return [...timestamps].sort();
+}
+
+export function aggregateMovieHistory(
+  history: ReadonlyArray<TraktHistoryItem>,
+  map: Map<string, NormalizedItem>,
+): void {
+  // Group all "movie" history rows by trakt id.
+  const byTraktId = new Map<number, string[]>();
+  for (const row of history) {
+    if (row.type !== "movie" || !row.movie) continue;
+    const traktId = row.movie.ids.trakt;
+    const list = byTraktId.get(traktId);
+    if (list) list.push(row.watched_at);
+    else byTraktId.set(traktId, [row.watched_at]);
+  }
+  for (const [traktId, timestamps] of byTraktId) {
+    const item = map.get(itemKey("movie", traktId));
+    if (!item) continue;
+    item.watch_history_movie = chronologicalSort(timestamps);
+  }
+}
+
+export function aggregateShowHistory(
+  history: ReadonlyArray<TraktHistoryItem>,
+  map: Map<string, NormalizedItem>,
+): void {
+  // Group "episode" rows by show trakt id, then within each show by S/E.
+  // Each (show, season, episode) accumulates the list of watched_at strings.
+  const byShow = new Map<number, Map<string, EpisodeWatchHistory>>();
+  for (const row of history) {
+    if (row.type !== "episode" || !row.show || !row.episode) continue;
+    const showId = row.show.ids.trakt;
+    const seKey = `${row.episode.season}:${row.episode.number}`;
+
+    let perEpisode = byShow.get(showId);
+    if (!perEpisode) {
+      perEpisode = new Map();
+      byShow.set(showId, perEpisode);
+    }
+    let entry = perEpisode.get(seKey);
+    if (!entry) {
+      entry = {
+        season: row.episode.season,
+        episode: row.episode.number,
+        title: row.episode.title,
+        watched_at: [],
+      };
+      perEpisode.set(seKey, entry);
+    }
+    entry.watched_at.push(row.watched_at);
+  }
+
+  for (const [showId, perEpisode] of byShow) {
+    const item = map.get(itemKey("show", showId));
+    if (!item) continue;
+    const episodes: EpisodeWatchHistory[] = [];
+    for (const entry of perEpisode.values()) {
+      episodes.push({
+        season: entry.season,
+        episode: entry.episode,
+        title: entry.title,
+        watched_at: chronologicalSort(entry.watched_at),
+      });
+    }
+    // Stable order: by season ascending, then episode ascending. Lets the
+    // template render `S1E1, S1E2, …, S2E1` predictably.
+    episodes.sort(
+      (a, b) => a.season - b.season || a.episode - b.episode,
+    );
+    item.watch_history_episodes = episodes;
+  }
 }
 
 function getOrCreateItem(
@@ -166,8 +295,9 @@ export class SyncEngine {
   }
 
   async sync(): Promise<SyncResult> {
+    const t = getTranslator(this.settings.uiLanguage);
     if (this.syncing) {
-      new Notice("Sync already in progress.");
+      new Notice(t("notice.alreadySyncing"));
       return { added: 0, updated: 0, removed: 0, failed: 0, errors: [] };
     }
 
@@ -202,9 +332,13 @@ export class SyncEngine {
 
       // 5. Show result
       console.debug(`[Traktr] Sync complete — added: ${result.added}, updated: ${result.updated}, removed: ${result.removed}, failed: ${result.failed}`);
-      let msg = `Sync complete: ${result.added} added, ${result.updated} updated, ${result.removed} removed`;
+      let msg = t("notice.syncComplete", {
+        added: result.added,
+        updated: result.updated,
+        removed: result.removed,
+      });
       if (result.failed > 0) {
-        msg += `, ${result.failed} failed`;
+        msg += t("notice.syncCompleteWithFailures", { failed: result.failed });
         console.error(`[Traktr] Sync completed with ${result.failed} failure(s):`);
         for (const err of result.errors) {
           console.error(err);
@@ -212,13 +346,17 @@ export class SyncEngine {
       }
       new Notice(msg, result.failed > 0 ? 10000 : 5000);
       if (result.failed > 0) {
-        new Notice(`Traktr: ${result.errors[0]}${result.errors.length > 1 ? ` (+${result.errors.length - 1} more — see console)` : ""}`, 10000);
+        const more =
+          result.errors.length > 1
+            ? t("notice.syncMore", { count: result.errors.length - 1 })
+            : "";
+        new Notice(`${t("status.prefix")}${result.errors[0]}${more}`, 10000);
       }
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : "Unknown error during sync.";
       console.error("[Traktr] Sync failed:", e);
-      new Notice(`Traktr sync failed: ${msg}`, 10000);
+      new Notice(t("notice.syncFailed", { msg }), 10000);
       result.errors.push(msg);
     } finally {
       this.syncing = false;
@@ -239,11 +377,13 @@ export class SyncEngine {
     const folder = this.settings.tagNotesFolder;
     const pfx = folder ? `${folder}/` : "";
 
-    // Collect all unique note paths (without .md extension)
+    // Collect all unique note paths (without .md extension). Genre paths use
+    // the original (English) genre list so tag-note files don't churn or
+    // duplicate when the user switches metadata languages.
     const paths = new Set<string>();
     for (const item of mergedItems.values()) {
       paths.add(`${pfx}${item.type}`);
-      for (const genre of item.genres) {
+      for (const genre of item.originalGenres) {
         paths.add(`${pfx}genre/${genre}`);
       }
       if (item.watchlist) paths.add(`${pfx}watchlist`);
@@ -273,12 +413,22 @@ export class SyncEngine {
     map: Map<string, NormalizedItem>
   ): Promise<void> {
     const { clientId, accessToken } = this.settings;
+    // syncWatchedDetail is gated behind syncWatched so we never fetch a huge
+    // history list for someone who hasn't even opted into watch sync.
+    const fetchDetail = this.settings.syncWatched && this.settings.syncWatchedDetail;
 
-    const [watchlistItems, watchedItems, favoriteItems, ratingItems] = await Promise.all([
+    const [
+      watchlistItems,
+      watchedItems,
+      favoriteItems,
+      ratingItems,
+      historyItems,
+    ] = await Promise.all([
       this.settings.syncWatchlist ? fetchWatchlist("movies", clientId, accessToken) : Promise.resolve([] as TraktWatchlistItem[]),
       this.settings.syncWatched ? fetchWatchedMovies(clientId, accessToken) : Promise.resolve([] as TraktWatchedMovieItem[]),
       this.settings.syncFavorites ? fetchFavorites("movies", clientId, accessToken) : Promise.resolve([] as TraktFavoriteItem[]),
       this.settings.syncRatings ? fetchRatings("movies", clientId, accessToken) : Promise.resolve([] as TraktRatingItem[]),
+      fetchDetail ? fetchHistory("movies", clientId, accessToken) : Promise.resolve([] as TraktHistoryItem[]),
     ]);
 
     for (const raw of watchlistItems) {
@@ -308,6 +458,8 @@ export class SyncEngine {
       item.my_rating = raw.rating;
       item.rated_at = raw.rated_at;
     }
+
+    if (fetchDetail) aggregateMovieHistory(historyItems, map);
   }
 
   /**
@@ -317,12 +469,20 @@ export class SyncEngine {
     map: Map<string, NormalizedItem>
   ): Promise<void> {
     const { clientId, accessToken } = this.settings;
+    const fetchDetail = this.settings.syncWatched && this.settings.syncWatchedDetail;
 
-    const [watchlistItems, watchedItems, favoriteItems, ratingItems] = await Promise.all([
+    const [
+      watchlistItems,
+      watchedItems,
+      favoriteItems,
+      ratingItems,
+      historyItems,
+    ] = await Promise.all([
       this.settings.syncWatchlist ? fetchWatchlist("shows", clientId, accessToken) : Promise.resolve([] as TraktWatchlistItem[]),
       this.settings.syncWatched ? fetchWatchedShows(clientId, accessToken) : Promise.resolve([] as TraktWatchedShowItem[]),
       this.settings.syncFavorites ? fetchFavorites("shows", clientId, accessToken) : Promise.resolve([] as TraktFavoriteItem[]),
       this.settings.syncRatings ? fetchRatings("shows", clientId, accessToken) : Promise.resolve([] as TraktRatingItem[]),
+      fetchDetail ? fetchHistory("episodes", clientId, accessToken) : Promise.resolve([] as TraktHistoryItem[]),
     ]);
 
     for (const raw of watchlistItems) {
@@ -358,6 +518,36 @@ export class SyncEngine {
       item.my_rating = raw.rating;
       item.rated_at = raw.rated_at;
     }
+
+    if (fetchDetail) aggregateShowHistory(historyItems, map);
+  }
+
+  /**
+   * Fetch a translation from Trakt's /translations/{lang} endpoint and apply
+   * it to the item. Only used when no TMDB API key is configured (or the item
+   * has no TMDB ID), since Trakt translations cover title/overview/tagline
+   * but not genres.
+   */
+  private async applyTraktTranslation(
+    item: NormalizedItem,
+    language: string,
+  ): Promise<void> {
+    const traktType = item.type === "movie" ? "movies" : "shows";
+    const translations = await fetchTraktTranslations(
+      traktType,
+      item.ids.trakt,
+      language,
+      this.settings.clientId,
+    );
+    const picked = pickTraktTranslation(translations, language);
+    if (!picked) return;
+    applyTranslation(item, {
+      title: picked.title,
+      overview: picked.overview,
+      tagline: picked.tagline,
+      // No genre data on this endpoint — leave originalGenres / genres alone.
+      genres: undefined,
+    });
   }
 
   /**
@@ -376,19 +566,41 @@ export class SyncEngine {
       this.settings.propertyPrefix
     );
 
-    // Fetch all poster URLs in parallel before processing notes
+    // Fetch poster + (optionally) translation in a single TMDB call per item.
+    // When metadataLanguage is unset, the call shape is unchanged from the
+    // pre-i18n version, so default behavior is byte-stable.
+    const language = getEffectiveMetadataLanguage(this.settings);
     if (this.settings.tmdbApiKey) {
       await Promise.all(
         [...mergedItems.values()].map(async (item) => {
-          if (!item.ids.tmdb) return;
-          const posterFn =
-            item.type === "movie" ? fetchMoviePosterUrl : fetchTvPosterUrl;
-          item.poster_url = await posterFn(
+          if (!item.ids.tmdb) {
+            // No TMDB ID — try Trakt's translation endpoint as a fallback when
+            // i18n is enabled. Posters require TMDB, so we skip those.
+            if (language) {
+              await this.applyTraktTranslation(item, language);
+            }
+            return;
+          }
+          const fetcher =
+            item.type === "movie" ? fetchMovieMetadata : fetchTvMetadata;
+          const meta = await fetcher(
             item.ids.tmdb,
             this.settings.tmdbApiKey,
-            this.settings.posterSize
+            this.settings.posterSize,
+            language,
           );
+          item.poster_url = meta.poster_url;
+          if (meta.translation) {
+            applyTranslation(item, meta.translation);
+          }
         })
+      );
+    } else if (language) {
+      // No TMDB key + i18n enabled → fall back to Trakt's translation endpoint.
+      await Promise.all(
+        [...mergedItems.values()].map((item) =>
+          this.applyTraktTranslation(item, language),
+        ),
       );
     }
 

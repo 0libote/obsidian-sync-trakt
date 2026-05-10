@@ -1,6 +1,63 @@
-import type { NormalizedItem } from "./types";
+import type { NormalizedItem, EpisodeWatchHistory } from "./types";
 import type { TraktrSettings } from "./settings";
+import {
+  getEffectiveMetadataLanguage,
+  getEffectiveTemplateLanguage,
+} from "./settings";
 import { renderTemplate, toFrontmatter } from "./utils";
+
+/** Format an ISO-8601 timestamp as `YYYY-MM-DD HH:MM` in the user's local
+ * timezone. Trakt records `watched_at` in UTC, but a viewer cares about the
+ * wall-clock time when they actually pressed play, which is local. */
+function formatWatchTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Render the full Watch History section (heading + bulleted list) for an
+ * item, or "" if no detailed history was collected. The heading text
+ * matches the saved templateLanguage so the section reads consistently with
+ * the rest of the bundled template. */
+export function renderWatchHistorySection(
+  item: NormalizedItem,
+  settings: TraktrSettings,
+): string {
+  const list = renderWatchHistoryList(item);
+  if (!list) return "";
+  const heading = watchHistoryHeading(
+    getEffectiveTemplateLanguage(settings),
+  );
+  return `## ${heading}\n${list}`;
+}
+
+/** Render only the bullet list (no heading) — useful for users who want to
+ * write their own heading in their template. Returns "" when no detail. */
+export function renderWatchHistoryList(item: NormalizedItem): string {
+  if (item.type === "movie") {
+    const ts = item.watch_history_movie;
+    if (!ts || ts.length === 0) return "";
+    return ts.map((t) => `- ${formatWatchTime(t)}`).join("\n");
+  }
+  // show
+  const eps = item.watch_history_episodes;
+  if (!eps || eps.length === 0) return "";
+  return eps.map(formatEpisodeLine).join("\n");
+}
+
+function formatEpisodeLine(ep: EpisodeWatchHistory): string {
+  const code = `S${ep.season}E${ep.episode}`;
+  const times = ep.watched_at.map(formatWatchTime).join(", ");
+  return `- ${code} — ${times}`;
+}
+
+function watchHistoryHeading(templateLang: string): string {
+  const code = (templateLang || "").trim();
+  if (code === "zh-CN") return "观看记录";
+  if (code === "zh-TW" || code === "zh-HK") return "觀看紀錄";
+  return "Watch History";
+}
 
 function traktUrl(item: NormalizedItem): string {
   return `https://trakt.tv/${item.type === "movie" ? "movies" : "shows"}/${item.ids.slug}`;
@@ -22,7 +79,9 @@ function buildTemplateContext(
   const folder = settings.tagNotesFolder;
   const pfx = folder ? `${folder}/` : "";
   const tagNoteLinks = [`[[${pfx}${item.type}]]`];
-  for (const genre of item.genres) {
+  // Tag-note wikilinks use the ORIGINAL English genre list so that links
+  // remain stable when the user switches metadata language.
+  for (const genre of item.originalGenres) {
     tagNoteLinks.push(`[[${pfx}genre/${genre}]]`);
   }
   if (item.watchlist) tagNoteLinks.push(`[[${pfx}watchlist]]`);
@@ -73,6 +132,21 @@ function buildTemplateContext(
     favorited_at: item.favorited_at || "",
     my_rating: item.my_rating || "",
     rated_at: item.rated_at || "",
+    // i18n: originals are always available, even when localization is off,
+    // so users can opt into stable English filenames or template fields
+    // without flipping the global setting.
+    original_title: item.originalTitle,
+    original_overview: item.originalOverview,
+    original_tagline: item.originalTagline || "",
+    original_genres: item.originalGenres.join(", "),
+    metadata_language: getEffectiveMetadataLanguage(settings),
+    // Watch history (only populated when syncWatchedDetail is on AND the
+    // item appears in /sync/history). When empty, both variables resolve to
+    // empty strings so default-template lines collapse cleanly.
+    // {{watch_history}} = full section (heading + bulleted list)
+    // {{watch_history_list}} = list only (caller writes their own heading)
+    watch_history: renderWatchHistorySection(item, settings),
+    watch_history_list: renderWatchHistoryList(item),
   };
 }
 
@@ -85,11 +159,16 @@ export function buildFrontmatterData(
   settings: TraktrSettings
 ): Record<string, unknown> {
   const p = settings.propertyPrefix;
+  // When localization is off (effective language is empty), trakt_original_*
+  // fields are NOT written — preserves byte-for-byte default behavior.
+  const lang = getEffectiveMetadataLanguage(settings);
+  const i18nOn = lang !== "";
 
   const data: Record<string, unknown> = {};
 
   // Core metadata
   data[`${p}title`] = item.title;
+  if (i18nOn) data[`${p}original_title`] = item.originalTitle;
   data[`${p}year`] = item.year;
   data[`${p}type`] = item.type;
   data[`${p}id`] = item.ids.trakt;
@@ -97,6 +176,7 @@ export function buildFrontmatterData(
   data[`${p}imdb_id`] = item.ids.imdb || null;
   data[`${p}tmdb_id`] = item.ids.tmdb || null;
   data[`${p}genres`] = item.genres;
+  if (i18nOn) data[`${p}original_genres`] = item.originalGenres;
   data[`${p}runtime`] = item.runtime;
   data[`${p}certification`] = item.certification;
   data[`${p}rating`] = item.rating;
@@ -105,11 +185,15 @@ export function buildFrontmatterData(
   data[`${p}language`] = item.language;
   data[`${p}status`] = item.status;
   data[`${p}overview`] = item.overview;
+  if (i18nOn) data[`${p}original_overview`] = item.originalOverview;
 
   // Movie-specific
   if (item.type === "movie") {
     data[`${p}released`] = item.released || null;
     data[`${p}tagline`] = item.tagline || null;
+    if (i18nOn) {
+      data[`${p}original_tagline`] = item.originalTagline || null;
+    }
   }
 
   // Show-specific
@@ -160,11 +244,15 @@ export function buildFrontmatterData(
   data[`${p}imdb_url`] = imdbUrl(item);
   data[`${p}poster_url`] = item.poster_url || null;
   data[`${p}synced_at`] = new Date().toISOString();
+  if (i18nOn) data[`${p}metadata_language`] = lang;
 
   if (settings.addTags) {
     const tagPfx = settings.tagPrefix;
     const tags = [`${tagPfx}/${item.type}`];
-    for (const genre of item.genres) {
+    // Tags use the ORIGINAL English genre list, by design — they back machine
+    // queries (Dataview etc.) and changing them would silently break user
+    // queries when language switches.
+    for (const genre of item.originalGenres) {
       tags.push(`${tagPfx}/genre/${genre}`);
     }
     if (item.watchlist) tags.push(`${tagPfx}/watchlist`);
@@ -178,7 +266,9 @@ export function buildFrontmatterData(
     const folder = settings.tagNotesFolder;
     const pfx = folder ? `${folder}/` : "";
     const tagNotes = [`[[${pfx}${item.type}]]`];
-    for (const genre of item.genres) {
+    // Same rationale as tags: tag-note wikilinks must stay stable across
+    // language changes so users don't end up with split graphs.
+    for (const genre of item.originalGenres) {
       tagNotes.push(`[[${pfx}genre/${genre}]]`);
     }
     if (item.watchlist) tagNotes.push(`[[${pfx}watchlist]]`);

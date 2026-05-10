@@ -6,6 +6,7 @@ import {
 } from "./settings";
 import { AuthModal } from "./trakt-auth";
 import { SyncEngine } from "./sync-engine";
+import { getTranslator } from "./i18n";
 
 export default class TraktrPlugin extends Plugin {
   settings: TraktrSettings = DEFAULT_SETTINGS;
@@ -27,18 +28,24 @@ export default class TraktrPlugin extends Plugin {
     // Settings tab
     this.addSettingTab(new TraktrSettingTab(this.app, this));
 
-    // Commands
+    const t = getTranslator(this.settings.uiLanguage);
+
+    // Commands. Note: Obsidian caches command names at registration time, so
+    // changing the UI language requires reloading the plugin to refresh
+    // command palette labels. Documented behavior — not worth a bigger fix.
     this.addCommand({
       id: "trakt-sync",
-      name: "Sync",
+      name: t("cmd.sync"),
       callback: async () => {
         if (!this.settings.accessToken) {
           new Notice(
-            "Traktr not connected. Use settings or the command palette to connect.",
+            getTranslator(this.settings.uiLanguage)("notice.notConnected"),
           );
           return;
         }
-        this.updateStatusBar("⟳ Syncing…");
+        this.updateStatusBar(
+          getTranslator(this.settings.uiLanguage)("status.syncing"),
+        );
         await this.syncEngine.sync();
         this.updateStatusBar("");
       },
@@ -46,12 +53,11 @@ export default class TraktrPlugin extends Plugin {
 
     this.addCommand({
       id: "trakt-connect",
-      name: "Connect account",
+      name: t("cmd.connect"),
       callback: async () => {
+        const tNow = getTranslator(this.settings.uiLanguage);
         if (!this.settings.clientId || !this.settings.clientSecret) {
-          new Notice(
-            "Please configure your client ID and secret in settings first.",
-          );
+          new Notice(tNow("notice.needCredentials"));
           return;
         }
         this.startAuth();
@@ -60,13 +66,14 @@ export default class TraktrPlugin extends Plugin {
 
     this.addCommand({
       id: "trakt-disconnect",
-      name: "Disconnect account",
+      name: t("cmd.disconnect"),
       callback: async () => {
+        const tNow = getTranslator(this.settings.uiLanguage);
         this.settings.accessToken = "";
         this.settings.refreshToken = "";
         this.settings.tokenExpiresAt = 0;
         await this.saveSettings();
-        new Notice("Traktr disconnected.");
+        new Notice(tNow("auth.connection.disconnectedNotice"));
       },
     });
 
@@ -80,7 +87,9 @@ export default class TraktrPlugin extends Plugin {
     if (this.settings.syncOnStartup && this.settings.accessToken) {
       window.setTimeout(() => {
         void (async () => {
-          this.updateStatusBar("⟳ Syncing…");
+          this.updateStatusBar(
+            getTranslator(this.settings.uiLanguage)("status.syncing"),
+          );
           await this.syncEngine.sync();
           this.updateStatusBar("");
         })();
@@ -135,7 +144,8 @@ export default class TraktrPlugin extends Plugin {
 
   private updateStatusBar(status: string) {
     if (this.statusBarEl) {
-      this.statusBarEl.setText(status ? `Traktr: ${status}` : "");
+      const t = getTranslator(this.settings.uiLanguage);
+      this.statusBarEl.setText(status ? `${t("status.prefix")}${status}` : "");
     }
   }
 }

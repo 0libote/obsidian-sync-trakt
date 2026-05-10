@@ -7,6 +7,7 @@ import type {
   TraktWatchedShowItem,
   TraktFavoriteItem,
   TraktRatingItem,
+  TraktHistoryItem,
 } from "./types";
 
 const TRAKT_BASE = "https://api.trakt.tv";
@@ -281,4 +282,106 @@ export async function fetchRatings(
     accessToken,
     "Ratings"
   );
+}
+
+/**
+ * Fetch the user's complete watch history for a given type. Each entry in
+ * the response represents ONE watch event (so re-watches generate multiple
+ * entries with the same movie/episode ids). Used to render per-watch
+ * timestamps in the note body when `syncWatchedDetail` is enabled.
+ *
+ * Note: this endpoint can be very large for active users (one entry per
+ * episode watched, ever). It's gated behind a separate setting for that
+ * reason.
+ */
+export async function fetchHistory(
+  type: "movies" | "episodes",
+  clientId: string,
+  accessToken: string,
+): Promise<TraktHistoryItem[]> {
+  return fetchPaginated<TraktHistoryItem>(
+    `/sync/history/${type}`,
+    clientId,
+    accessToken,
+    `History ${type}`,
+  );
+}
+
+// ── Translations (i18n fallback when no TMDB key is configured) ──
+
+export interface TraktTranslation {
+  title?: string;
+  overview?: string;
+  tagline?: string;
+  language: string;
+  country?: string;
+}
+
+/**
+ * Fetch translations for a Trakt movie or show. Trakt's endpoint expects a
+ * 2-letter ISO 639-1 language code (e.g. "zh", not "zh-CN"); the caller passes
+ * the full BCP-47 code and this function trims it.
+ *
+ * Returns [] on any error so callers can fall back gracefully — translation
+ * is best-effort and should never break sync.
+ */
+export async function fetchTraktTranslations(
+  type: "movies" | "shows",
+  traktId: number | string,
+  language: string,
+  clientId: string,
+): Promise<TraktTranslation[]> {
+  const langCode = language.split("-")[0]?.toLowerCase() || "";
+  if (!langCode) return [];
+
+  try {
+    const resp = await requestUrl({
+      url: `${TRAKT_BASE}/${type}/${traktId}/translations/${langCode}`,
+      method: "GET",
+      headers: traktHeaders(clientId),
+      throw: false,
+    });
+    if (resp.status !== 200) {
+      console.warn(
+        `Trakt translation fetch failed for ${type}/${traktId}: ${resp.status}`,
+      );
+      return [];
+    }
+    const data: unknown = resp.json;
+    return Array.isArray(data) ? (data as TraktTranslation[]) : [];
+  } catch (e) {
+    console.warn(`Trakt translation fetch error for ${type}/${traktId}:`, e);
+    return [];
+  }
+}
+
+/**
+ * Pick the most relevant translation entry for the requested BCP-47 language:
+ *   1. exact language + country match (e.g. zh-CN → language=zh, country=cn)
+ *   2. first language-only match
+ *   3. null when nothing fits
+ */
+export function pickTraktTranslation(
+  translations: TraktTranslation[],
+  language: string,
+): TraktTranslation | null {
+  if (translations.length === 0) return null;
+  const parts = language.split("-");
+  const langCode = (parts[0] || "").toLowerCase();
+  const countryCode = (parts[1] || "").toLowerCase();
+  if (!langCode) return null;
+
+  if (countryCode) {
+    const exact = translations.find(
+      (t) =>
+        t.language?.toLowerCase() === langCode &&
+        (t.country || "").toLowerCase() === countryCode,
+    );
+    if (exact) return exact;
+  }
+
+  const langOnly = translations.find(
+    (t) => t.language?.toLowerCase() === langCode,
+  );
+  return langOnly || null;
 }

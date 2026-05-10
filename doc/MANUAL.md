@@ -1,31 +1,33 @@
-# Traktr — User Manual
+# Obsidian Sync Trakt — User Manual
 
 ## 1. What it does
 
-Traktr is an Obsidian plugin that pulls your [Trakt.tv](https://trakt.tv) data and creates one Markdown note per movie or TV show in your vault. Each note contains:
+This plugin pulls your [Trakt.tv](https://trakt.tv) data and creates one
+Markdown note per movie or TV show in your vault. Each note contains:
 
 - **Frontmatter** — structured metadata (title, year, genres, ratings, watch status, Trakt/IMDB/TMDB IDs, poster URL, sync timestamp)
 - **Body** — rendered from a customizable template with `{{variable}}` placeholders
 - **Tags** — automatically generated from the type, genres, and sync sources (optional)
 - **Tag notes** — wikilinks to topic files for building a graph (optional)
+- **Watch History** — opt-in section showing per-episode (or per-movie) watch timestamps from Trakt's `/sync/history` endpoint
 
 Movies and shows live in the same folder and are distinguished by the `trakt_type` frontmatter field (`movie` or `show`). Dataview queries can filter by either.
+
+This plugin is forked from [sarimabbas/traktr](https://github.com/sarimabbas/traktr); see the README for attribution and what's added.
 
 ---
 
 ## 2. Installation
 
-**Community plugin directory:**
+Manual install:
 
-1. Open Obsidian → Settings → Community plugins → Browse
-2. Search for "Traktr" and install
-
-**Manual installation:**
-
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/sarimabbas/traktr/releases/latest)
-2. In your vault, create the folder `.obsidian/plugins/traktr/`
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest)
+2. In your vault, create the folder `.obsidian/plugins/obsidian-sync-trakt/`
 3. Copy the three files into that folder
-4. Open Obsidian → Settings → Community plugins → enable **Traktr**
+4. Open Obsidian → Settings → Community plugins → enable **Obsidian Sync Trakt**
+
+Or via [BRAT](https://github.com/TfTHacker/obsidian42-brat): add the beta plugin
+`o1xhack/obsidian-sync-trakt`.
 
 ---
 
@@ -80,6 +82,21 @@ Access tokens are refreshed automatically before each sync (no manual re-authent
 | TMDB API key | _(blank)_ | Optional. Leave blank to skip poster images. |
 | Poster size | `w500` | Image width variant fetched from TMDB. Options: w92, w154, w185, w342, w500, w780, original. |
 
+### Localization
+
+Optional. Translate `title`, `overview`, `tagline`, and `genres` in synced notes. Tags and tag-note wikilinks always stay in English so existing Dataview queries keep working.
+
+| Setting | Default | Description |
+|---|---|---|
+| Metadata language | `Default (English / Trakt original)` | Locale for translated metadata. Selecting `Default` disables localization; existing notes stay byte-identical to the pre-i18n behavior. Presets cover Simplified/Traditional Chinese, Japanese, Korean, English variants, French, German, Spanish (ES/MX), Brazilian Portuguese, Italian, and Russian; pick `Custom` to enter any BCP 47 code (e.g. `tr-TR`). |
+| Custom language code | `(blank)` | Only shown when `Custom` is selected above. |
+
+When localization is enabled, sync resolves translations in this order:
+
+1. **TMDB** (preferred) — one combined call per item that returns the localized `title` / `overview` / `tagline` / `genres` plus the poster URL. Requires a TMDB API key.
+2. **Trakt `/translations/{lang}`** (fallback) — used when no TMDB API key is configured. Covers `title` / `overview` / `tagline` only; `genres` stay in English.
+3. **English original** — used field-by-field when neither API has a translation in the requested language.
+
 ### Notes
 
 | Setting | Default | Description |
@@ -120,7 +137,8 @@ Tag notes are topic files you link to from your notes, creating a graph of conne
 |---|---|---|
 | Sync watchlist | on | Items on your Trakt watchlist (things you want to watch). |
 | Sync favorites | on | Items you've marked as favorites. |
-| Sync watch history | off | Items you've watched. Adds play count and last-watched date. Can be a large dataset. |
+| Sync watch history | off | Items you've watched. Adds play count and last-watched date per item. Can be a large dataset. |
+| Sync watch history (detailed) | off | Layered on top of the toggle above. Pulls Trakt's `/sync/history` endpoint and surfaces per-episode (or per-movie) watch timestamps via the `{{watch_history}}` template variable. **Significantly slower** for active users — each individual watch event is one API entry, paginated at 100/page. Off by default; only shown when "Sync watch history" is on. |
 | Sync ratings | off | Items you've rated (1–10). |
 
 ### Sync behavior
@@ -187,6 +205,11 @@ All fields below are prefixed with the configured **Property prefix** (default `
 | `trakt_synced_at` | string | ISO timestamp of last sync. |
 | `trakt_tag_notes` | list | Wikilinks to tag note files (when "Add tag notes to frontmatter" is on). |
 | `tags` | list | Auto-generated Obsidian tags (when "Add tags" is on). |
+| `trakt_original_title` | string | English/source-language title. Only present when **Metadata language** is set. |
+| `trakt_original_overview` | string | English/source-language plot summary. Only present when **Metadata language** is set. |
+| `trakt_original_tagline` | string | English/source-language tagline (movies only). Only present when **Metadata language** is set. |
+| `trakt_original_genres` | list | English/source-language genre list. Only present when **Metadata language** is set. |
+| `trakt_metadata_language` | string | The active language code (e.g. `zh-CN`). Only present when **Metadata language** is set. |
 
 ### Auto-generated tags
 
@@ -241,6 +264,44 @@ The note body template uses `{{variable}}` syntax. Available variables:
 | `{{favorited_at}}` | Favorited timestamp |
 | `{{my_rating}}` | Your rating (1–10) |
 | `{{rated_at}}` | Rated timestamp |
+| `{{original_title}}` | English/source-language title. Always available, even when localization is off (then equal to `{{title}}`). |
+| `{{original_overview}}` | English/source-language plot summary. Always available. |
+| `{{original_tagline}}` | English/source-language tagline (movies). Always available. |
+| `{{original_genres}}` | English/source-language genre list, comma-separated. Always available. |
+| `{{metadata_language}}` | Active language code, or `""` when localization is off. |
+| `{{watch_history}}` | Full **Watch History** section (`## heading` + bullet list) when **Sync watch history (detailed)** is on; empty string otherwise. Heading text follows your **Note template language** setting (English / 简体中文 / 繁體中文). |
+| `{{watch_history_list}}` | Same content as `{{watch_history}}` but without the heading line. Use this if you want to render your own heading in your custom template. |
+
+### Watch history rendering
+
+When **Sync watch history (detailed)** is enabled, the body of each watched
+note gets a `## Watch History` (or 观看记录 / 觀看紀錄) section listing every
+watch event:
+
+For shows — one bullet per episode, with all watch timestamps comma-separated
+when an episode was rewatched:
+
+```markdown
+## Watch History
+- S1E1 — 2024-01-15 21:30, 2024-03-22 19:00
+- S1E2 — 2024-01-16 22:00
+- S1E3 — 2024-01-17 21:45
+- S2E1 — 2024-04-02 20:00
+```
+
+For movies — one bullet per watch event:
+
+```markdown
+## Watch History
+- 2023-12-25 19:00
+- 2024-06-10 22:30
+- 2025-02-14 20:15
+```
+
+Timestamps are formatted in your local timezone (Trakt stores them as UTC,
+the renderer converts to local before display). Episodes are sorted by
+season then episode number; timestamps within an episode are
+chronologically sorted.
 
 ---
 
@@ -256,6 +317,16 @@ The note body template uses `{{variable}}` syntax. Available variables:
 ### Delete
 
 When **Remove notes for deleted items** is enabled, any note whose composite `type:id` is no longer found in any enabled sync source is moved to the system trash at the end of each sync.
+
+### Changing language
+
+When you switch **Metadata language** and run sync again:
+
+- Frontmatter is rewritten in the new language; `trakt_original_*` fields keep the English values regardless.
+- If your **filename template** contains `{{title}}`, every note will be renamed to the new-language title on the next sync. Obsidian's link-update will fix wikilinks automatically, but **back up your vault first**.
+- To keep filenames stable across language switches, change the template to `{{original_title}} ({{year}})` *before* changing the language.
+- Tags (`#trakt/genre/...`) and tag-note wikilinks (`[[trakt/genre/...]]`) always use the original English genre list, so existing Dataview queries keep working unchanged.
+- Switching back to **Default (English / Trakt original)** rewrites frontmatter back to English; on the next sync the `trakt_original_*` and `trakt_metadata_language` fields are no longer written, so they'll persist on existing notes until you remove them or regenerate notes (enable **Overwrite existing note body** for one sync to fully regenerate).
 
 ### Running a sync
 

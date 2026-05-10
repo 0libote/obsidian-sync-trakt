@@ -6,6 +6,7 @@ import {
   TraktApiError,
 } from "./trakt-api";
 import type { TraktrSettings } from "./settings";
+import { getTranslator } from "./i18n";
 
 /**
  * Modal that displays the device auth flow UI.
@@ -32,11 +33,12 @@ export class AuthModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("traktr-auth-modal");
+    const t = getTranslator(this.settings.uiLanguage);
 
-    contentEl.createEl("h2", { text: "Connect" });
+    contentEl.createEl("h2", { text: t("authModal.title") });
 
     const statusEl = contentEl.createEl("p", {
-      text: "Requesting device code...",
+      text: t("authModal.requestingCode"),
       cls: "traktr-auth-status",
     });
 
@@ -46,7 +48,7 @@ export class AuthModal extends Modal {
       if (this.cancelled) return;
 
       // Show instructions
-      statusEl.setText("Open the link below and enter the code:");
+      statusEl.setText(t("authModal.openLink"));
 
       const linkEl = contentEl.createEl("p");
       linkEl.createEl("a", {
@@ -63,10 +65,10 @@ export class AuthModal extends Modal {
       });
       codeEl.addEventListener("click", () => {
         void navigator.clipboard.writeText(deviceCode.user_code);
-        new Notice("Code copied to clipboard!");
+        new Notice(t("authModal.codeCopied"));
       });
       codeContainer.createEl("small", {
-        text: "Click to copy",
+        text: t("authModal.copyHint"),
         cls: "traktr-auth-copy-hint",
       });
 
@@ -75,7 +77,7 @@ export class AuthModal extends Modal {
       });
 
       const cancelBtn = contentEl.createEl("button", {
-        text: "Cancel",
+        text: t("authModal.cancel"),
       });
       cancelBtn.addEventListener("click", () => this.close());
 
@@ -86,10 +88,10 @@ export class AuthModal extends Modal {
           0,
           Math.floor((expiresAt - Date.now()) / 1000),
         );
-        countdownEl.setText(`Code expires in ${remaining}s`);
+        countdownEl.setText(t("authModal.codeExpiresIn", { n: remaining }));
         if (remaining <= 0) {
           this.clearCountdown();
-          statusEl.setText("Code expired. Please close and try again.");
+          statusEl.setText(t("authModal.codeExpired"));
         }
       }, 1000);
 
@@ -122,14 +124,16 @@ export class AuthModal extends Modal {
 
               await this.onSuccess();
 
-              new Notice("Successfully connected!");
+              new Notice(t("authModal.success"));
               this.close();
             }
           } catch (e) {
             if (e instanceof TraktApiError && !e.isRetryable) {
               this.clearPolling();
               this.clearCountdown();
-              statusEl.setText(`Error: ${e.message}`);
+              statusEl.setText(
+                t("authModal.errorPrefix", { msg: e.message }),
+              );
             }
             // For retryable errors (429), just skip this poll cycle
           }
@@ -137,7 +141,9 @@ export class AuthModal extends Modal {
       }, pollIntervalMs);
     } catch (e) {
       statusEl.setText(
-        `Failed to start auth: ${e instanceof Error ? e.message : String(e)}`,
+        t("authModal.failedStart", {
+          msg: e instanceof Error ? e.message : String(e),
+        }),
       );
     }
   }
@@ -173,8 +179,9 @@ export async function ensureValidToken(
   settings: TraktrSettings,
   saveSettings: () => Promise<void>,
 ): Promise<void> {
+  const t = getTranslator(settings.uiLanguage);
   if (!settings.accessToken || !settings.refreshToken) {
-    throw new Error("Not connected to Trakt. Please connect first.");
+    throw new Error(t("auth.error.notConnected"));
   }
 
   const bufferMs = 60 * 60 * 1000; // 1 hour
@@ -199,6 +206,6 @@ export async function ensureValidToken(
     settings.refreshToken = "";
     settings.tokenExpiresAt = 0;
     await saveSettings();
-    throw new Error("Trakt session expired. Please reconnect.");
+    throw new Error(t("auth.error.sessionExpired"));
   }
 }

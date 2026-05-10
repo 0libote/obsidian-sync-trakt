@@ -1,16 +1,33 @@
 {
-  "name": "traktr",
-  "version": "1.5.2",
-  "description": "Sync your Trakt.tv watchlist, watch history, favorites, and ratings to Obsidian notes.",
+  "name": "obsidian-sync-trakt",
+  "version": "1.0.0",
+  "description": "Sync Trakt.tv watchlist, watch history, favorites, and ratings into Obsidian notes — with metadata localization (zh / ja / etc) and detailed per-episode watch timestamps.",
   "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/o1xhack/obsidian-sync-trakt.git"
+  },
+  "homepage": "https://github.com/o1xhack/obsidian-sync-trakt",
+  "bugs": "https://github.com/o1xhack/obsidian-sync-trakt/issues",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "release": "bash scripts/release.sh",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "test:i18n": "esbuild tests/i18n.smoke.ts --bundle --platform=node --format=cjs --alias:obsidian=./tests/stub-obsidian.ts --outfile=tests/.bundled.cjs --log-level=warning && node tests/.bundled.cjs"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "obsidian",
+    "trakt",
+    "obsidian-plugin",
+    "sync",
+    "watchlist"
+  ],
+  "author": {
+    "name": "o1xhack",
+    "email": "o1xhack@gmail.com",
+    "url": "https://github.com/o1xhack"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^25.3.5",

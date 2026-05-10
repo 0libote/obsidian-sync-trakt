@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import type TraktrPlugin from "./main";
+import { getTranslator, type UiLanguage } from "./i18n";
 
 export const POSTER_SIZES = [
   "w92",
@@ -13,6 +14,70 @@ export const POSTER_SIZES = [
 
 export type PosterSize = (typeof POSTER_SIZES)[number];
 
+/** Preset language options shown in the Localization (metadata) dropdown.
+ * The Note template language dropdown reuses this same list for symmetry,
+ * even though the plugin only ships translated default templates for English
+ * and Simplified/Traditional Chinese (other codes resolve to the English
+ * default — users can still customize manually). */
+export const METADATA_LANGUAGE_PRESETS: ReadonlyArray<readonly [string, string]> = [
+  ["", "Default (English / Trakt original)"],
+  ["zh-CN", "Chinese (Simplified, China)"],
+  ["zh-TW", "Chinese (Traditional, Taiwan)"],
+  ["zh-HK", "Chinese (Traditional, Hong Kong)"],
+  ["ja-JP", "Japanese"],
+  ["ko-KR", "Korean"],
+  ["en-US", "English (United States)"],
+  ["en-GB", "English (United Kingdom)"],
+  ["fr-FR", "French"],
+  ["de-DE", "German"],
+  ["es-ES", "Spanish (Spain)"],
+  ["es-MX", "Spanish (Mexico)"],
+  ["pt-BR", "Portuguese (Brazil)"],
+  ["it-IT", "Italian"],
+  ["ru-RU", "Russian"],
+];
+
+const PRESET_LANGUAGE_VALUES: ReadonlySet<string> = new Set(
+  METADATA_LANGUAGE_PRESETS.map(([v]) => v),
+);
+
+/**
+ * Resolve the effective language code to use for translation requests.
+ * Returns "" when localization is disabled (no preset selected, or "custom"
+ * with no code typed).
+ */
+export function getEffectiveMetadataLanguage(settings: TraktrSettings): string {
+  const dropdown = (settings.metadataLanguage || "").trim();
+  if (dropdown === "custom") {
+    return (settings.customMetadataLanguage || "").trim();
+  }
+  return dropdown;
+}
+
+/** True when the saved metadata-language dropdown value is "custom". */
+function isCustomLanguageMode(settings: TraktrSettings): boolean {
+  return (settings.metadataLanguage || "").trim() === "custom";
+}
+
+/**
+ * Resolve the effective language code for picking a default note template.
+ * Mirrors getEffectiveMetadataLanguage but for the templateLanguage field.
+ */
+export function getEffectiveTemplateLanguage(
+  settings: TraktrSettings,
+): string {
+  const dropdown = (settings.templateLanguage || "").trim();
+  if (dropdown === "custom") {
+    return (settings.customTemplateLanguage || "").trim();
+  }
+  return dropdown;
+}
+
+/** True when the template-language dropdown is set to "custom". */
+function isCustomTemplateLanguageMode(settings: TraktrSettings): boolean {
+  return (settings.templateLanguage || "").trim() === "custom";
+}
+
 export interface TraktrSettings {
   // Authentication
   clientId: string;
@@ -24,6 +89,24 @@ export interface TraktrSettings {
   // TMDB
   tmdbApiKey: string;
   posterSize: PosterSize;
+
+  // Localization (i18n)
+  // metadataLanguage: dropdown value — "" (disabled), one of the presets, or
+  //   the literal string "custom".
+  // customMetadataLanguage: user-typed code, only consulted when
+  //   metadataLanguage === "custom".
+  // uiLanguage: language of the plugin's settings tab, command names, and
+  //   notice popups. Independent from metadataLanguage. Limited to en/zh-CN.
+  // templateLanguage: language used by the bundled default Movie / Show note
+  //   templates. Same dropdown shape as metadataLanguage (preset codes +
+  //   "custom"). The "Reset to default" button on each template applies this.
+  // customTemplateLanguage: user-typed code, only consulted when
+  //   templateLanguage === "custom".
+  metadataLanguage: string;
+  customMetadataLanguage: string;
+  uiLanguage: UiLanguage;
+  templateLanguage: string;
+  customTemplateLanguage: string;
 
   // Property namespace
   propertyPrefix: string;
@@ -46,9 +129,15 @@ export interface TraktrSettings {
   tagNotesFolder: string;
 
   // Sync sources
+  // syncWatched: pulls /sync/watched/* — provides plays count + last
+  //   watched timestamp per item.
+  // syncWatchedDetail: layered on top, additionally pulls /sync/history to
+  //   render per-watch timestamps in the note body via {{watch_history}}.
+  //   This endpoint can be very large; off by default.
   syncWatchlist: boolean;
   syncFavorites: boolean;
   syncWatched: boolean;
+  syncWatchedDetail: boolean;
   syncRatings: boolean;
 
   // Sync behavior
@@ -61,7 +150,7 @@ export interface TraktrSettings {
   deleteRemovedItems: boolean;
 }
 
-export const DEFAULT_MOVIE_TEMPLATE = `![poster]({{poster_url}})
+export const DEFAULT_MOVIE_TEMPLATE_EN = `![poster]({{poster_url}})
 
 > {{tagline}}
 
@@ -81,6 +170,8 @@ export const DEFAULT_MOVIE_TEMPLATE = `![poster]({{poster_url}})
 - **Favorite**: {{favorite}}
 - **My Rating**: {{my_rating}}/10
 
+{{watch_history}}
+
 ## Links
 - [Trakt]({{trakt_url}})
 - [IMDB]({{imdb_url}})
@@ -89,7 +180,7 @@ export const DEFAULT_MOVIE_TEMPLATE = `![poster]({{poster_url}})
 
 `;
 
-export const DEFAULT_SHOW_TEMPLATE = `![poster]({{poster_url}})
+export const DEFAULT_SHOW_TEMPLATE_EN = `![poster]({{poster_url}})
 
 ## Overview
 {{overview}}
@@ -110,6 +201,8 @@ export const DEFAULT_SHOW_TEMPLATE = `![poster]({{poster_url}})
 - **Favorite**: {{favorite}}
 - **My Rating**: {{my_rating}}/10
 
+{{watch_history}}
+
 ## Links
 - [Trakt]({{trakt_url}})
 - [IMDB]({{imdb_url}})
@@ -117,6 +210,169 @@ export const DEFAULT_SHOW_TEMPLATE = `![poster]({{poster_url}})
 ## My Notes
 
 `;
+
+export const DEFAULT_MOVIE_TEMPLATE_ZH_CN = `![poster]({{poster_url}})
+
+> {{tagline}}
+
+## 剧情简介
+{{overview}}
+
+## 详情
+- **片长**：{{runtime}} 分钟
+- **类型**：{{genres}}
+- **评分**：{{trakt_rating}}/10（{{trakt_votes}} 票）
+- **分级**：{{certification}}
+- **上映**：{{released}}
+
+## Trakt 状态
+- **想看**：{{watchlist}}
+- **看过**：{{watched}}（共 {{plays}} 次，最近：{{last_watched_at}}）
+- **收藏**：{{favorite}}
+- **我的评分**：{{my_rating}}/10
+
+{{watch_history}}
+
+## 链接
+- [Trakt]({{trakt_url}})
+- [IMDB]({{imdb_url}})
+
+## 我的笔记
+
+`;
+
+export const DEFAULT_SHOW_TEMPLATE_ZH_CN = `![poster]({{poster_url}})
+
+## 剧情简介
+{{overview}}
+
+## 详情
+- **平台**：{{network}}
+- **片长**：每集 {{runtime}} 分钟
+- **集数**：{{aired_episodes}} 集已播出
+- **类型**：{{genres}}
+- **评分**：{{trakt_rating}}/10（{{trakt_votes}} 票）
+- **分级**：{{certification}}
+- **状态**：{{status}}
+- **首播**：{{first_aired}}
+
+## Trakt 状态
+- **想看**：{{watchlist}}
+- **看过**：{{watched}}（共 {{plays}} 次，最近：{{last_watched_at}}）
+- **收藏**：{{favorite}}
+- **我的评分**：{{my_rating}}/10
+
+{{watch_history}}
+
+## 链接
+- [Trakt]({{trakt_url}})
+- [IMDB]({{imdb_url}})
+
+## 我的笔记
+
+`;
+
+export const DEFAULT_MOVIE_TEMPLATE_ZH_TW = `![poster]({{poster_url}})
+
+> {{tagline}}
+
+## 劇情簡介
+{{overview}}
+
+## 詳情
+- **片長**：{{runtime}} 分鐘
+- **類型**：{{genres}}
+- **評分**：{{trakt_rating}}/10（{{trakt_votes}} 票）
+- **分級**：{{certification}}
+- **上映**：{{released}}
+
+## Trakt 狀態
+- **想看**：{{watchlist}}
+- **看過**：{{watched}}（共 {{plays}} 次，最近：{{last_watched_at}}）
+- **收藏**：{{favorite}}
+- **我的評分**：{{my_rating}}/10
+
+{{watch_history}}
+
+## 連結
+- [Trakt]({{trakt_url}})
+- [IMDB]({{imdb_url}})
+
+## 我的筆記
+
+`;
+
+export const DEFAULT_SHOW_TEMPLATE_ZH_TW = `![poster]({{poster_url}})
+
+## 劇情簡介
+{{overview}}
+
+## 詳情
+- **平台**：{{network}}
+- **片長**：每集 {{runtime}} 分鐘
+- **集數**：{{aired_episodes}} 集已播出
+- **類型**：{{genres}}
+- **評分**：{{trakt_rating}}/10（{{trakt_votes}} 票）
+- **分級**：{{certification}}
+- **狀態**：{{status}}
+- **首播**：{{first_aired}}
+
+## Trakt 狀態
+- **想看**：{{watchlist}}
+- **看過**：{{watched}}（共 {{plays}} 次，最近：{{last_watched_at}}）
+- **收藏**：{{favorite}}
+- **我的評分**：{{my_rating}}/10
+
+{{watch_history}}
+
+## 連結
+- [Trakt]({{trakt_url}})
+- [IMDB]({{imdb_url}})
+
+## 我的筆記
+
+`;
+
+/**
+ * Pick the bundled default movie template for a language code. Languages
+ * without a bundled translation fall back to English — the user can still
+ * customize the template by hand or pick a different `templateLanguage`.
+ */
+export function getDefaultMovieTemplate(lang: string): string {
+  const code = (lang || "").trim();
+  if (code === "zh-CN") return DEFAULT_MOVIE_TEMPLATE_ZH_CN;
+  if (code === "zh-TW" || code === "zh-HK") return DEFAULT_MOVIE_TEMPLATE_ZH_TW;
+  return DEFAULT_MOVIE_TEMPLATE_EN;
+}
+
+export function getDefaultShowTemplate(lang: string): string {
+  const code = (lang || "").trim();
+  if (code === "zh-CN") return DEFAULT_SHOW_TEMPLATE_ZH_CN;
+  if (code === "zh-TW" || code === "zh-HK") return DEFAULT_SHOW_TEMPLATE_ZH_TW;
+  return DEFAULT_SHOW_TEMPLATE_EN;
+}
+
+/** Backward-compat aliases — anything that imported the old constant names
+ * still sees the English defaults. */
+export const DEFAULT_MOVIE_TEMPLATE = DEFAULT_MOVIE_TEMPLATE_EN;
+export const DEFAULT_SHOW_TEMPLATE = DEFAULT_SHOW_TEMPLATE_EN;
+
+/** All known default templates across (lang × type). Used to detect whether a
+ * user's saved template still equals one of the defaults — if so, switching
+ * templateLanguage rewrites it; if not (= user-customized), we leave it
+ * alone. */
+const ALL_DEFAULT_TEMPLATES: ReadonlyArray<string> = [
+  DEFAULT_MOVIE_TEMPLATE_EN,
+  DEFAULT_MOVIE_TEMPLATE_ZH_CN,
+  DEFAULT_MOVIE_TEMPLATE_ZH_TW,
+  DEFAULT_SHOW_TEMPLATE_EN,
+  DEFAULT_SHOW_TEMPLATE_ZH_CN,
+  DEFAULT_SHOW_TEMPLATE_ZH_TW,
+];
+
+function isDefaultTemplate(value: string): boolean {
+  return ALL_DEFAULT_TEMPLATES.includes(value);
+}
 
 export const DEFAULT_SETTINGS: TraktrSettings = {
   clientId: "",
@@ -128,13 +384,19 @@ export const DEFAULT_SETTINGS: TraktrSettings = {
   tmdbApiKey: "",
   posterSize: "w500",
 
+  metadataLanguage: "",
+  customMetadataLanguage: "",
+  uiLanguage: "en",
+  templateLanguage: "",
+  customTemplateLanguage: "",
+
   propertyPrefix: "trakt_",
 
   folder: "trakt",
   filenameTemplate: "{{title}} ({{year}})",
 
-  movieNoteTemplate: DEFAULT_MOVIE_TEMPLATE,
-  showNoteTemplate: DEFAULT_SHOW_TEMPLATE,
+  movieNoteTemplate: DEFAULT_MOVIE_TEMPLATE_EN,
+  showNoteTemplate: DEFAULT_SHOW_TEMPLATE_EN,
 
   addTags: true,
   tagPrefix: "trakt",
@@ -146,6 +408,7 @@ export const DEFAULT_SETTINGS: TraktrSettings = {
   syncWatchlist: true,
   syncFavorites: true,
   syncWatched: false,
+  syncWatchedDetail: false,
   syncRatings: false,
 
   syncMovies: true,
@@ -168,16 +431,17 @@ export class TraktrSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    const t = getTranslator(this.plugin.settings.uiLanguage);
 
     // ── Authentication ──
-    new Setting(containerEl).setName("Authentication").setHeading();
+    new Setting(containerEl).setName(t("auth.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("Trakt client ID")
-      .setDesc("Create an app at trakt.tv/oauth/applications to get this.")
+      .setName(t("auth.clientId.name"))
+      .setDesc(t("auth.clientId.desc"))
       .addText((text) =>
         text
-          .setPlaceholder("Trakt client ID")
+          .setPlaceholder(t("auth.clientId.name"))
           .setValue(this.plugin.settings.clientId)
           .onChange(async (value) => {
             this.plugin.settings.clientId = value.trim();
@@ -186,11 +450,11 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Trakt client secret")
-      .setDesc("From the same application page.")
+      .setName(t("auth.clientSecret.name"))
+      .setDesc(t("auth.clientSecret.desc"))
       .addText((text) =>
         text
-          .setPlaceholder("Trakt client secret")
+          .setPlaceholder(t("auth.clientSecret.name"))
           .setValue(this.plugin.settings.clientSecret)
           .onChange(async (value) => {
             this.plugin.settings.clientSecret = value.trim();
@@ -199,36 +463,36 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     const connectionSetting = new Setting(containerEl).setName(
-      "Connection status",
+      t("auth.connection.name"),
     );
 
     if (this.plugin.settings.accessToken) {
-      connectionSetting.setDesc("Traktr connected.");
+      connectionSetting.setDesc(t("auth.connection.connected"));
       connectionSetting.addButton((btn) =>
         btn
-          .setButtonText("Disconnect")
+          .setButtonText(t("auth.connection.disconnect"))
           .setWarning()
           .onClick(async () => {
             this.plugin.settings.accessToken = "";
             this.plugin.settings.refreshToken = "";
             this.plugin.settings.tokenExpiresAt = 0;
             await this.plugin.saveSettings();
-            new Notice("Traktr disconnected.");
+            new Notice(t("auth.connection.disconnectedNotice"));
             this.display();
           }),
       );
     } else {
-      connectionSetting.setDesc("Not connected.");
+      connectionSetting.setDesc(t("auth.connection.notConnected"));
       connectionSetting.addButton((btn) =>
         btn
-          .setButtonText("Connect")
+          .setButtonText(t("auth.connection.connect"))
           .setCta()
           .onClick(async () => {
             if (
               !this.plugin.settings.clientId ||
               !this.plugin.settings.clientSecret
             ) {
-              new Notice("Please enter your client ID and secret first.");
+              new Notice(t("auth.connection.needCredentialsNotice"));
               return;
             }
             this.plugin.startAuth();
@@ -238,16 +502,14 @@ export class TraktrSettingTab extends PluginSettingTab {
     }
 
     // ── TMDB (poster images) ──
-    new Setting(containerEl).setName("TMDB").setHeading();
+    new Setting(containerEl).setName(t("tmdb.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("API key")
-      .setDesc(
-        "Optional. Get a free key at themoviedb.org/settings/api. If blank, poster images are skipped.",
-      )
+      .setName(t("tmdb.apiKey.name"))
+      .setDesc(t("tmdb.apiKey.desc"))
       .addText((text) =>
         text
-          .setPlaceholder("Paste your API key")
+          .setPlaceholder(t("tmdb.apiKey.placeholder"))
           .setValue(this.plugin.settings.tmdbApiKey)
           .onChange(async (value) => {
             this.plugin.settings.tmdbApiKey = value.trim();
@@ -256,8 +518,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Poster size")
-      .setDesc("Image size for posters embedded in notes.")
+      .setName(t("tmdb.posterSize.name"))
+      .setDesc(t("tmdb.posterSize.desc"))
       .addDropdown((dd) => {
         for (const size of POSTER_SIZES) {
           dd.addOption(size, size);
@@ -269,12 +531,172 @@ export class TraktrSettingTab extends PluginSettingTab {
         });
       });
 
-    // ── Notes ──
-    new Setting(containerEl).setName("Notes").setHeading();
+    // ── Localization ──
+    new Setting(containerEl).setName(t("loc.heading")).setHeading();
+
+    const dropdownValue = isCustomLanguageMode(this.plugin.settings)
+      ? "custom"
+      : PRESET_LANGUAGE_VALUES.has(this.plugin.settings.metadataLanguage)
+        ? this.plugin.settings.metadataLanguage
+        : this.plugin.settings.metadataLanguage === ""
+          ? ""
+          : "custom";
 
     new Setting(containerEl)
-      .setName("Notes folder")
-      .setDesc("Vault folder where notes are stored.")
+      .setName(t("loc.metadataLanguage.name"))
+      .setDesc(t("loc.metadataLanguage.desc"))
+      .addDropdown((dd) => {
+        for (const [value, label] of METADATA_LANGUAGE_PRESETS) {
+          // The "" preset's label is localized via t(); other preset labels
+          // stay in English (they ARE language names in their own language by
+          // convention — "Chinese (Simplified)" reads fine on a Chinese UI).
+          const localizedLabel =
+            value === "" ? t("loc.metadataLanguage.default") : label;
+          dd.addOption(value, localizedLabel);
+        }
+        dd.addOption("custom", t("loc.metadataLanguage.custom"));
+        dd.setValue(dropdownValue);
+        dd.onChange(async (value) => {
+          if (value === "custom") {
+            const previous = this.plugin.settings.metadataLanguage;
+            if (
+              previous &&
+              previous !== "custom" &&
+              !PRESET_LANGUAGE_VALUES.has(previous)
+            ) {
+              this.plugin.settings.customMetadataLanguage = previous;
+            }
+            this.plugin.settings.metadataLanguage = "custom";
+          } else {
+            this.plugin.settings.metadataLanguage = value;
+          }
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      });
+
+    if (dropdownValue === "custom") {
+      new Setting(containerEl)
+        .setName(t("loc.customLanguage.name"))
+        .setDesc(t("loc.customLanguage.desc"))
+        .addText((text) =>
+          text
+            .setPlaceholder(t("loc.customLanguage.placeholder"))
+            .setValue(this.plugin.settings.customMetadataLanguage)
+            .onChange(async (value) => {
+              this.plugin.settings.customMetadataLanguage = value.trim();
+              await this.plugin.saveSettings();
+            }),
+        );
+    }
+
+    // Plugin UI language
+    new Setting(containerEl)
+      .setName(t("loc.uiLanguage.name"))
+      .setDesc(t("loc.uiLanguage.desc"))
+      .addDropdown((dd) => {
+        dd.addOption("en", "English");
+        dd.addOption("zh-CN", "简体中文");
+        dd.setValue(this.plugin.settings.uiLanguage);
+        dd.onChange(async (value) => {
+          this.plugin.settings.uiLanguage = value as UiLanguage;
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      });
+
+    // Note template language — same dropdown shape as Metadata language
+    // (preset codes + Custom). Auto-rewrites unmodified default templates
+    // when the language changes; customized templates are preserved.
+    const tplDropdownValue = isCustomTemplateLanguageMode(this.plugin.settings)
+      ? "custom"
+      : PRESET_LANGUAGE_VALUES.has(this.plugin.settings.templateLanguage)
+        ? this.plugin.settings.templateLanguage
+        : this.plugin.settings.templateLanguage === ""
+          ? ""
+          : "custom";
+
+    const applyTemplateLanguageChange = async (newLang: string) => {
+      // Only rewrite a saved template when it still matches one of the
+      // bundled defaults — i.e. the user hasn't customized it. We resolve
+      // through getDefault*Template() so a code without a bundled translation
+      // (e.g. ja-JP, ko-KR, fr-FR, custom code) falls back to English.
+      const movieDefault = getDefaultMovieTemplate(
+        newLang === "custom"
+          ? this.plugin.settings.customTemplateLanguage
+          : newLang,
+      );
+      const showDefault = getDefaultShowTemplate(
+        newLang === "custom"
+          ? this.plugin.settings.customTemplateLanguage
+          : newLang,
+      );
+      if (isDefaultTemplate(this.plugin.settings.movieNoteTemplate)) {
+        this.plugin.settings.movieNoteTemplate = movieDefault;
+      }
+      if (isDefaultTemplate(this.plugin.settings.showNoteTemplate)) {
+        this.plugin.settings.showNoteTemplate = showDefault;
+      }
+    };
+
+    new Setting(containerEl)
+      .setName(t("loc.templateLanguage.name"))
+      .setDesc(t("loc.templateLanguage.desc"))
+      .addDropdown((dd) => {
+        for (const [value, label] of METADATA_LANGUAGE_PRESETS) {
+          const localizedLabel =
+            value === "" ? t("loc.metadataLanguage.default") : label;
+          dd.addOption(value, localizedLabel);
+        }
+        dd.addOption("custom", t("loc.metadataLanguage.custom"));
+        dd.setValue(tplDropdownValue);
+        dd.onChange(async (value) => {
+          if (value === "custom") {
+            const previous = this.plugin.settings.templateLanguage;
+            if (
+              previous &&
+              previous !== "custom" &&
+              !PRESET_LANGUAGE_VALUES.has(previous)
+            ) {
+              this.plugin.settings.customTemplateLanguage = previous;
+            }
+            this.plugin.settings.templateLanguage = "custom";
+          } else {
+            this.plugin.settings.templateLanguage = value;
+          }
+          await applyTemplateLanguageChange(
+            this.plugin.settings.templateLanguage,
+          );
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      });
+
+    if (tplDropdownValue === "custom") {
+      new Setting(containerEl)
+        .setName(t("loc.customLanguage.name"))
+        .setDesc(t("loc.customLanguage.desc"))
+        .addText((text) =>
+          text
+            .setPlaceholder(t("loc.customLanguage.placeholder"))
+            .setValue(this.plugin.settings.customTemplateLanguage)
+            .onChange(async (value) => {
+              this.plugin.settings.customTemplateLanguage = value.trim();
+              // Re-resolve templates against the typed code on the fly, so
+              // that picking e.g. "zh-TW" via custom field does the same
+              // thing as picking it from the preset list.
+              await applyTemplateLanguageChange("custom");
+              await this.plugin.saveSettings();
+            }),
+        );
+    }
+
+    // ── Notes ──
+    new Setting(containerEl).setName(t("notes.heading")).setHeading();
+
+    new Setting(containerEl)
+      .setName(t("notes.folder.name"))
+      .setDesc(t("notes.folder.desc"))
       .addText((text) =>
         text
           .setPlaceholder("Trakt")
@@ -286,10 +708,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Filename template")
-      .setDesc(
-        "Template for note filenames. Variables: {{title}}, {{year}}, {{imdb_id}}, {{trakt_id}}.",
-      )
+      .setName(t("notes.filename.name"))
+      .setDesc(t("notes.filename.desc"))
       .addText((text) =>
         text
           .setPlaceholder("{{title}} ({{year}})")
@@ -301,10 +721,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Property prefix")
-      .setDesc(
-        'Prefix for all frontmatter properties added by this plugin. E.g. "trakt_" → trakt_title, trakt_watched. Leave blank for no prefix.',
-      )
+      .setName(t("notes.prefix.name"))
+      .setDesc(t("notes.prefix.desc"))
       .addText((text) =>
         text
           .setPlaceholder("Trakt_")
@@ -316,13 +734,11 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     // ── Note templates ──
-    new Setting(containerEl).setName("Note templates").setHeading();
+    new Setting(containerEl).setName(t("templates.heading")).setHeading();
 
     const movieTemplateSetting = new Setting(containerEl)
-      .setName("Movie note template")
-      .setDesc(
-        "Template for the body of movie notes. Uses {{variable}} syntax.",
-      );
+      .setName(t("templates.movie.name"))
+      .setDesc(t("templates.movie.desc"));
     movieTemplateSetting.addTextArea((ta) => {
       ta.inputEl.rows = 12;
       ta.inputEl.cols = 60;
@@ -334,18 +750,18 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
     });
     movieTemplateSetting.addButton((btn) =>
-      btn.setButtonText("Reset to default").onClick(async () => {
-        this.plugin.settings.movieNoteTemplate = DEFAULT_MOVIE_TEMPLATE;
+      btn.setButtonText(t("templates.reset")).onClick(async () => {
+        this.plugin.settings.movieNoteTemplate = getDefaultMovieTemplate(
+          this.plugin.settings.templateLanguage,
+        );
         await this.plugin.saveSettings();
         this.display();
       }),
     );
 
     const showTemplateSetting = new Setting(containerEl)
-      .setName("Show template")
-      .setDesc(
-        "Template for the body of TV show notes. Uses {{variable}} syntax.",
-      );
+      .setName(t("templates.show.name"))
+      .setDesc(t("templates.show.desc"));
     showTemplateSetting.addTextArea((ta) => {
       ta.inputEl.rows = 12;
       ta.inputEl.cols = 60;
@@ -357,21 +773,21 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
     });
     showTemplateSetting.addButton((btn) =>
-      btn.setButtonText("Reset to default").onClick(async () => {
-        this.plugin.settings.showNoteTemplate = DEFAULT_SHOW_TEMPLATE;
+      btn.setButtonText(t("templates.reset")).onClick(async () => {
+        this.plugin.settings.showNoteTemplate = getDefaultShowTemplate(
+          this.plugin.settings.templateLanguage,
+        );
         await this.plugin.saveSettings();
         this.display();
       }),
     );
 
     // ── Tags ──
-    new Setting(containerEl).setName("Tags").setHeading();
+    new Setting(containerEl).setName(t("tags.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("Add tags")
-      .setDesc(
-        "Add metadata tags to the note frontmatter on each sync. E.g. #trakt/genre/action.",
-      )
+      .setName(t("tags.add.name"))
+      .setDesc(t("tags.add.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.addTags)
@@ -382,10 +798,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Tag prefix")
-      .setDesc(
-        'Prefix for tags. E.g. "trakt" → #trakt/movie, #trakt/genre/action.',
-      )
+      .setName(t("tags.prefix.name"))
+      .setDesc(t("tags.prefix.desc"))
       .addText((text) =>
         text
           .setPlaceholder("Trakt")
@@ -398,17 +812,13 @@ export class TraktrSettingTab extends PluginSettingTab {
 
     // ── Tag notes ──
     new Setting(containerEl)
-      .setName("Tag notes")
-      .setDesc(
-        "Tag notes are topic files you link to/from your notes. Stick to one of tags or tag notes, or use both.",
-      )
+      .setName(t("tagNotes.heading"))
+      .setDesc(t("tagNotes.heading.desc"))
       .setHeading();
 
     new Setting(containerEl)
-      .setName("Add tag notes to frontmatter")
-      .setDesc(
-        "Add a wikilink list property to the note frontmatter on each sync. E.g. [[trakt/genre/action]]. Or leave this setting off and use the {{tag_notes}} template variable to place links in the note body instead.",
-      )
+      .setName(t("tagNotes.add.name"))
+      .setDesc(t("tagNotes.add.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.addTagNotes)
@@ -419,8 +829,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Create tag notes")
-      .setDesc("Automatically create tag note files if they don't exist.")
+      .setName(t("tagNotes.create.name"))
+      .setDesc(t("tagNotes.create.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.createTagNotes)
@@ -431,10 +841,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Tag notes folder")
-      .setDesc(
-        'Folder for tag notes. Used for frontmatter links, file creation, and the {{tag_notes}} template variable. E.g. "trakt" → [[trakt/genre/action]].',
-      )
+      .setName(t("tagNotes.folder.name"))
+      .setDesc(t("tagNotes.folder.desc"))
       .addText((text) =>
         text
           .setPlaceholder("Trakt")
@@ -446,11 +854,11 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     // ── Sync sources ──
-    new Setting(containerEl).setName("Sync sources").setHeading();
+    new Setting(containerEl).setName(t("syncSources.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("Sync watchlist")
-      .setDesc("Items you want to watch.")
+      .setName(t("syncSources.watchlist.name"))
+      .setDesc(t("syncSources.watchlist.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.syncWatchlist)
@@ -461,8 +869,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Sync favorites")
-      .setDesc("Items you've marked as favorites.")
+      .setName(t("syncSources.favorites.name"))
+      .setDesc(t("syncSources.favorites.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.syncFavorites)
@@ -473,22 +881,39 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Sync watch history")
-      .setDesc(
-        "Items you've watched. Adds play count and last watched date. Can be large.",
-      )
+      .setName(t("syncSources.watched.name"))
+      .setDesc(t("syncSources.watched.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.syncWatched)
           .onChange(async (value) => {
             this.plugin.settings.syncWatched = value;
+            // syncWatchedDetail is meaningless without syncWatched, so clear
+            // it when the parent flips off — keeps settings consistent and
+            // avoids surprise behavior next time syncWatched is re-enabled.
+            if (!value) this.plugin.settings.syncWatchedDetail = false;
             await this.plugin.saveSettings();
+            this.display();
           }),
       );
 
+    if (this.plugin.settings.syncWatched) {
+      new Setting(containerEl)
+        .setName(t("syncSources.watchedDetail.name"))
+        .setDesc(t("syncSources.watchedDetail.desc"))
+        .addToggle((toggle) =>
+          toggle
+            .setValue(this.plugin.settings.syncWatchedDetail)
+            .onChange(async (value) => {
+              this.plugin.settings.syncWatchedDetail = value;
+              await this.plugin.saveSettings();
+            }),
+        );
+    }
+
     new Setting(containerEl)
-      .setName("Sync ratings")
-      .setDesc("Items you've rated (1–10 scale).")
+      .setName(t("syncSources.ratings.name"))
+      .setDesc(t("syncSources.ratings.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.syncRatings)
@@ -499,11 +924,11 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     // ── Sync behavior ──
-    new Setting(containerEl).setName("Sync behavior").setHeading();
+    new Setting(containerEl).setName(t("syncBehavior.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("Sync movies")
-      .setDesc("Include movies.")
+      .setName(t("syncBehavior.movies.name"))
+      .setDesc(t("syncBehavior.movies.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.syncMovies)
@@ -514,8 +939,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Sync shows")
-      .setDesc("Include shows.")
+      .setName(t("syncBehavior.shows.name"))
+      .setDesc(t("syncBehavior.shows.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.syncShows)
@@ -526,8 +951,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Sync on startup")
-      .setDesc("Automatically sync when Obsidian starts.")
+      .setName(t("syncBehavior.startup.name"))
+      .setDesc(t("syncBehavior.startup.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.syncOnStartup)
@@ -538,8 +963,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Auto-sync")
-      .setDesc(`Periodically sync in the background.`)
+      .setName(t("syncBehavior.autoSync.name"))
+      .setDesc(t("syncBehavior.autoSync.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoSyncEnabled)
@@ -553,8 +978,8 @@ export class TraktrSettingTab extends PluginSettingTab {
 
     if (this.plugin.settings.autoSyncEnabled) {
       new Setting(containerEl)
-        .setName("Auto-sync interval (minutes)")
-        .setDesc("How often to sync. Minimum 5, maximum 360.")
+        .setName(t("syncBehavior.interval.name"))
+        .setDesc(t("syncBehavior.interval.desc"))
         .addSlider((slider) =>
           slider
             .setLimits(5, 360, 5)
@@ -569,10 +994,8 @@ export class TraktrSettingTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
-      .setName("Overwrite existing note body")
-      .setDesc(
-        "When off, only frontmatter is updated and your notes are preserved. When on, the full note is regenerated from the template on every sync — any edits you've made to the note body will be permanently lost.",
-      )
+      .setName(t("syncBehavior.overwrite.name"))
+      .setDesc(t("syncBehavior.overwrite.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.overwriteExisting)
@@ -583,8 +1006,8 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Remove notes for deleted items")
-      .setDesc("When on, notes from all sync sources are moved to trash.")
+      .setName(t("syncBehavior.delete.name"))
+      .setDesc(t("syncBehavior.delete.desc"))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.deleteRemovedItems)
@@ -595,16 +1018,14 @@ export class TraktrSettingTab extends PluginSettingTab {
       );
 
     // ── Reset ──
-    new Setting(containerEl).setName("Reset").setHeading();
+    new Setting(containerEl).setName(t("reset.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("Reset to defaults")
-      .setDesc(
-        "Clear all settings back to their default values. Authentication credentials are preserved.",
-      )
+      .setName(t("reset.button.name"))
+      .setDesc(t("reset.button.desc"))
       .addButton((btn) =>
         btn
-          .setButtonText("Reset to defaults")
+          .setButtonText(t("reset.button.name"))
           .setWarning()
           .onClick(async () => {
             const {
@@ -614,7 +1035,10 @@ export class TraktrSettingTab extends PluginSettingTab {
               clientSecret,
               tokenExpiresAt,
               tmdbApiKey,
+              uiLanguage,
             } = this.plugin.settings;
+            // Preserve auth + UI language across reset; everything else
+            // goes back to its default.
             Object.assign(this.plugin.settings, DEFAULT_SETTINGS, {
               accessToken,
               refreshToken,
@@ -622,10 +1046,11 @@ export class TraktrSettingTab extends PluginSettingTab {
               clientSecret,
               tokenExpiresAt,
               tmdbApiKey,
+              uiLanguage,
             });
             await this.plugin.saveSettings();
             this.plugin.configureAutoSync();
-            new Notice("Settings reset to defaults.");
+            new Notice(t("reset.notice"));
             this.display();
           }),
       );

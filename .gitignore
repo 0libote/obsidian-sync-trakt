@@ -1,6 +1,11 @@
 # Build output
 main.js
 
+# Local release-staging directory — produced by build scripts; the
+# canonical distributable is the GitHub Releases asset, not anything
+# checked into the tree.
+dist/
+
 # npm
 node_modules
 
@@ -14,3 +19,9 @@ Thumbs.db
 
 # env
 .env
+
+# test artifacts
+tests/.bundled.cjs
+tests/.before.txt
+tests/.after.txt
+tests/.baseline-render.cjs
