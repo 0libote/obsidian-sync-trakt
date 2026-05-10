@@ -17,6 +17,8 @@ import {
   renderWatchHistorySection,
   renderWatchHistoryList,
   updateManagedBodySections,
+  frontmatterWouldChange,
+  valuesEqual,
   WATCH_HISTORY_MARKER_START,
   WATCH_HISTORY_MARKER_END,
 } from "../src/note-renderer";
@@ -367,14 +369,14 @@ console.log("\n[8] UI translator returns correct language");
 
   const tZh = getTranslator("zh-CN");
   assertEq(
-    tZh("notice.syncComplete", { added: 5, updated: 3, removed: 1 }),
-    "同步完成：新增 5，更新 3，移除 1",
+    tZh("notice.syncComplete", { added: 5, updated: 3, unchanged: 12, removed: 1 }),
+    "同步完成：新增 5，更新 3，未变 12，移除 1",
     "interpolated zh-CN notice with vars",
   );
   const tEn = getTranslator("en");
   assertEq(
-    tEn("notice.syncComplete", { added: 5, updated: 3, removed: 1 }),
-    "Sync complete: 5 added, 3 updated, 1 removed",
+    tEn("notice.syncComplete", { added: 5, updated: 3, unchanged: 12, removed: 1 }),
+    "Sync complete: 5 added, 3 updated, 12 unchanged, 1 removed",
     "interpolated en notice with vars",
   );
 }
@@ -1326,6 +1328,291 @@ void (async () => {
     assertEq(result.poster_url, "https://image.tmdb.org/t/p/w500/cached.jpg",
       "returns cached poster");
     assertEq(result.translation?.title, "缓存标题", "returns cached title");
+  }
+
+  // ── Test 26-30: spec 0002 diff-based write ────────────────────────────
+  // Critical safety property: when frontmatter has any meaningful change,
+  // diff MUST return true. False negatives = silent data loss.
+  // See spec 0002 §"Acceptance criterion (data integrity)".
+
+  console.log("\n[26] valuesEqual — primitives + arrays (order-sensitive)");
+  {
+    assertTrue(valuesEqual(1, 1), "1 === 1");
+    assertTrue(valuesEqual("a", "a"), '"a" === "a"');
+    assertTrue(valuesEqual(true, true), "true === true");
+    assertTrue(valuesEqual(null, null), "null === null");
+    assertTrue(!valuesEqual(1, "1"), "number 1 !== string '1' (type-strict)");
+    assertTrue(!valuesEqual(1, 2), "1 !== 2");
+    assertTrue(!valuesEqual("a", "b"), '"a" !== "b"');
+
+    assertTrue(valuesEqual([], []), "empty arrays equal");
+    assertTrue(
+      valuesEqual(["a", "b", "c"], ["a", "b", "c"]),
+      "same arrays equal",
+    );
+    assertTrue(
+      !valuesEqual(["a", "b", "c"], ["a", "c", "b"]),
+      "reordered arrays NOT equal (order-sensitive — protects against silent drops)",
+    );
+    assertTrue(
+      !valuesEqual(["a", "b"], ["a", "b", "c"]),
+      "different-length arrays not equal",
+    );
+    assertTrue(
+      valuesEqual([1, 2, 3], [1, 2, 3]),
+      "numeric arrays equal",
+    );
+    assertTrue(
+      !valuesEqual([1, "2", 3], [1, 2, 3]),
+      "type mismatch inside arrays caught (1, '2', 3) vs (1, 2, 3)",
+    );
+  }
+
+  console.log("\n[27] frontmatterWouldChange — true negatives (skip write)");
+  {
+    const newData = {
+      trakt_title: "The Dark Knight",
+      trakt_year: 2008,
+      trakt_rating: 8.5,
+      trakt_genres: ["Action", "Crime", "Drama"],
+      trakt_imdb_id: null, // null in newData = "would delete"
+      trakt_synced_at: "2026-05-10T22:12:40.233Z",
+    };
+    const existingFm = {
+      trakt_title: "The Dark Knight",
+      trakt_year: 2008,
+      trakt_rating: 8.5,
+      trakt_genres: ["Action", "Crime", "Drama"],
+      // trakt_imdb_id absent (matches newData null → no-op delete)
+      trakt_synced_at: "2026-05-09T10:00:00.000Z", // different but ignored
+    };
+    assertTrue(
+      !frontmatterWouldChange(newData, existingFm, ["trakt_synced_at"]),
+      "identical content (synced_at ignored) → false",
+    );
+
+    // Without the ignoreKeys, synced_at difference would make it true
+    assertTrue(
+      frontmatterWouldChange(newData, existingFm),
+      "without ignoreKeys, synced_at difference triggers true",
+    );
+
+    // Existing has extra user-added field that's not in newData → not our
+    // concern, should not trigger write
+    const fmWithUserField = { ...existingFm, my_personal_rating: 5 };
+    assertTrue(
+      !frontmatterWouldChange(newData, fmWithUserField, ["trakt_synced_at"]),
+      "user-added field (not in newData) ignored → false",
+    );
+
+    // newData has null where existingFm has nothing → no-op delete → false
+    const newDataWithNulls = { ...newData, trakt_tvdb_id: null };
+    assertTrue(
+      !frontmatterWouldChange(newDataWithNulls, existingFm, ["trakt_synced_at"]),
+      "newData has null for absent existing key → no-op delete → false",
+    );
+  }
+
+  console.log("\n[28] frontmatterWouldChange — true positives (must write)");
+  {
+    const baseExisting = {
+      trakt_title: "The Dark Knight",
+      trakt_year: 2008,
+      trakt_rating: 8.5,
+      trakt_genres: ["Action", "Crime", "Drama"],
+      trakt_synced_at: "2026-05-09T10:00:00.000Z",
+    };
+
+    // String value differs
+    assertTrue(
+      frontmatterWouldChange(
+        { trakt_title: "The Dark Knight Rises" },
+        baseExisting,
+        ["trakt_synced_at"],
+      ),
+      "title change detected",
+    );
+
+    // Numeric value differs
+    assertTrue(
+      frontmatterWouldChange(
+        { trakt_rating: 8.6 },
+        baseExisting,
+        ["trakt_synced_at"],
+      ),
+      "rating change detected",
+    );
+
+    // newData has key existingFm doesn't (e.g. user added new fields,
+    // upgraded plugin adds new fields)
+    assertTrue(
+      frontmatterWouldChange(
+        { trakt_new_field: "value" },
+        baseExisting,
+        ["trakt_synced_at"],
+      ),
+      "newly-introduced field detected",
+    );
+
+    // newData has null where existingFm has a value → callback would
+    // delete → real change
+    assertTrue(
+      frontmatterWouldChange(
+        { trakt_title: null },
+        baseExisting,
+        ["trakt_synced_at"],
+      ),
+      "null over existing value = delete = change",
+    );
+
+    // Array reordered (silent-loss protection — see valuesEqual rationale)
+    assertTrue(
+      frontmatterWouldChange(
+        { trakt_genres: ["Crime", "Action", "Drama"] },
+        baseExisting,
+        ["trakt_synced_at"],
+      ),
+      "reordered array detected (catches Trakt-side genre order changes)",
+    );
+
+    // Array length differs (e.g. genre added or removed upstream)
+    assertTrue(
+      frontmatterWouldChange(
+        { trakt_genres: ["Action", "Crime", "Drama", "Thriller"] },
+        baseExisting,
+        ["trakt_synced_at"],
+      ),
+      "longer genre array detected",
+    );
+    assertTrue(
+      frontmatterWouldChange(
+        { trakt_genres: ["Action", "Crime"] },
+        baseExisting,
+        ["trakt_synced_at"],
+      ),
+      "shorter genre array detected",
+    );
+
+    // Empty existingFm (note exists but no frontmatter) → must write
+    assertTrue(
+      frontmatterWouldChange(
+        { trakt_title: "X", trakt_year: 2024 },
+        {},
+        ["trakt_synced_at"],
+      ),
+      "empty existingFm triggers write",
+    );
+  }
+
+  console.log("\n[29] frontmatterWouldChange — buildFrontmatterData round trip");
+  {
+    // The acceptance test: a freshly-built frontmatter from a stable item
+    // must diff-equal a previous build of the same item (synced_at aside).
+    // If this ever returns true unexpectedly, it means we have a hidden
+    // non-determinism somewhere in buildFrontmatterData and the optimization
+    // would silently rewrite all 1200 notes every sync — defeating the spec.
+    const item = makeMovie();
+    const settings = withSettings({});
+
+    const dataA = buildFrontmatterData(item, settings);
+    // Simulate "this is what's on disk after a previous sync"
+    const onDiskFm: Record<string, unknown> = { ...dataA };
+    // Simulate Obsidian writing it then us reading it back later — strip
+    // null/undefined keys (toFrontmatter would have skipped them).
+    for (const k of Object.keys(onDiskFm)) {
+      const v = onDiskFm[k];
+      if (v === null || v === undefined || v === "") delete onDiskFm[k];
+    }
+
+    // Wait a moment to ensure synced_at differs in dataB
+    await new Promise((r) => setTimeout(r, 5));
+    const dataB = buildFrontmatterData(item, settings);
+
+    const syncedAtKey = `${settings.propertyPrefix}synced_at`;
+    assertTrue(
+      dataA[syncedAtKey] !== dataB[syncedAtKey],
+      "sanity: two builds produce different synced_at values",
+    );
+    assertTrue(
+      !frontmatterWouldChange(dataB, onDiskFm, [syncedAtKey]),
+      "stable item → no diff (synced_at correctly ignored)",
+    );
+
+    // Now perturb the item — should detect a change
+    const item2 = makeMovie();
+    item2.title = "Different Title";
+    const dataC = buildFrontmatterData(item2, settings);
+    assertTrue(
+      frontmatterWouldChange(dataC, onDiskFm, [syncedAtKey]),
+      "perturbed item → diff detected",
+    );
+
+    // Toggle i18n — many fields change
+    const i18nItem = makeI18nMovie();
+    const i18nSettings = withSettings({ metadataLanguage: "zh-CN" });
+    const dataI18n = buildFrontmatterData(i18nItem, i18nSettings);
+    assertTrue(
+      frontmatterWouldChange(dataI18n, onDiskFm, [syncedAtKey]),
+      "i18n switch → diff detected (translated fields + new original_* fields)",
+    );
+  }
+
+  console.log("\n[30] body-section diff: identity check on updateManagedBodySections");
+  {
+    // updateManagedBodySections is the body equivalent of the frontmatter
+    // diff. Verified pure & deterministic by spec investigation; this test
+    // locks that in — if anyone adds a Date.now() or random in the renderer
+    // path, the third assertion will start failing.
+    const item: NormalizedItem = {
+      ...makeMovie(),
+      type: "show",
+      ids: { trakt: 99, slug: "breaking-bad", imdb: "tt0903747", tmdb: 1396 },
+      title: "Breaking Bad",
+      watch_history_episodes: [
+        {
+          season: 1,
+          episode: 1,
+          watched_at: ["2024-01-15T21:30:00.000Z"],
+        },
+      ],
+    };
+    const settings = withSettings({ syncWatchedDetail: true });
+
+    const initialContent = "# Breaking Bad\n\nSome user notes.\n";
+    const renderedOnce = updateManagedBodySections(initialContent, item, settings);
+    const renderedTwice = updateManagedBodySections(renderedOnce, item, settings);
+    assertEq(
+      renderedOnce,
+      renderedTwice,
+      "idempotent: second call produces identical output (skip-write detection works)",
+    );
+
+    // New episode → output should differ
+    const itemMore: NormalizedItem = {
+      ...item,
+      watch_history_episodes: [
+        ...item.watch_history_episodes!,
+        {
+          season: 1,
+          episode: 2,
+          watched_at: ["2024-01-16T22:00:00.000Z"],
+        },
+      ],
+    };
+    const renderedMore = updateManagedBodySections(renderedOnce, itemMore, settings);
+    assertTrue(
+      renderedOnce !== renderedMore,
+      "new episode → different body content (write triggered)",
+    );
+
+    // No-op when syncWatchedDetail is off — body returned as-is
+    const offSettings = withSettings({ syncWatchedDetail: false });
+    const renderedOff = updateManagedBodySections(renderedOnce, item, offSettings);
+    assertEq(
+      renderedOff,
+      renderedOnce,
+      "syncWatchedDetail off → returns input unchanged",
+    );
   }
 
   console.log(`\n${"=".repeat(60)}`);

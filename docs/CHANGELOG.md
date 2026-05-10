@@ -7,6 +7,55 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 0.3.0 — 2026-05-10
+
+**Major: diff-based write.** Sync no longer touches every note's mtime
+on every run. Each note is rewritten only when its frontmatter or
+managed body section would actually change. Cross-device sync layers
+(Obsidian Sync, iCloud, Syncthing, vault-as-git) see ~1200 fewer
+"modified" files per sync in steady state.
+
+### Added
+
+- **Diff-first reconcile.** Before calling `processFrontMatter` /
+  `vault.process` on an existing note, the engine compares the
+  would-be frontmatter against what's already on disk (via
+  `metadataCache.getFileCache().frontmatter`) and the would-be body
+  section against the current file content. Both writes are skipped
+  when neither would meaningfully change. The sync notice now reports
+  a fourth count: **{unchanged}**, so a typical post-binge sync of a
+  1200-item library reads "0 added, 1 updated, 1199 unchanged, 0
+  removed".
+- **`docs/specs/0002-diff-based-write.md`** — full design including the
+  26-row edge-case matrix and the data-integrity acceptance criterion.
+- **32 new smoke tests** covering the diff functions: true negatives
+  (identical data), true positives (any meaningful field change), array
+  order sensitivity, null-key delete semantics, the buildFrontmatterData
+  round-trip, and watch-history body idempotency.
+
+### Changed
+
+- **`trakt_synced_at` semantic upgrade.** Previously this field was
+  rewritten to "now" on every sync — making it useless as a sort key
+  and making it the sole reason every note got rewritten every time.
+  Now it only updates when sync actually modifies the note. Existing
+  values on disk from 0.2.x stay as-is until the note has a real
+  change. Bases / Dataview can now sort by `trakt_synced_at` to find
+  recently-changed entries.
+
+### Migration
+
+No data migration. The first 0.3.0 sync may rewrite many notes with
+real Trakt-side changes that accumulated since the last sync (this is
+correct). Subsequent syncs are quiet. `trakt_synced_at` values from
+0.2.x stay stale on unchanged notes — that's the new (correct) meaning.
+
+The legacy "always rewrite" behavior is still available by enabling
+**Overwrite existing note body** in settings.
+
+See [spec 0002](specs/0002-diff-based-write.md) for design + the full
+edge-case contract.
+
 ## 0.2.0 — 2026-05-10
 
 **Major: incremental sync.** Steady-state sync wall time drops from

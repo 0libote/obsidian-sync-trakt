@@ -217,10 +217,15 @@ function buildTemplateContext(
 /**
  * Build the YAML frontmatter data object for an item.
  * ALL keys are prefixed with settings.propertyPrefix.
+ *
+ * `synced_at` is always set to `new Date().toISOString()`. The diff logic in
+ * sync-engine ignores this key when comparing against on-disk frontmatter,
+ * so the freshly-stamped value here only persists when the diff finds OTHER
+ * real changes that require a write — see spec 0002.
  */
 export function buildFrontmatterData(
   item: NormalizedItem,
-  settings: TraktrSettings
+  settings: TraktrSettings,
 ): Record<string, unknown> {
   const p = settings.propertyPrefix;
   // When localization is off (effective language is empty), trakt_original_*
@@ -374,4 +379,59 @@ export function renderFrontmatterOnly(
   settings: TraktrSettings
 ): string {
   return toFrontmatter(buildFrontmatterData(item, settings));
+}
+
+/**
+ * Semantic equality for frontmatter values. Handles primitives and arrays
+ * (order-sensitive). Anything else falls through to strict `===`.
+ *
+ * Order-sensitive on arrays is deliberate: if Trakt ever changes the order
+ * of e.g. genres for an item, we want that to count as a change and trigger
+ * a write — silently dropping it is worse than a spurious rewrite.
+ */
+export function valuesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!valuesEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Predicts whether the existing `processFrontMatter` callback in
+ * sync-engine.ts would actually mutate `existingFm` if invoked with
+ * `newData`. Returns `true` iff at least one key in `newData` would cause
+ * an assignment or deletion. Keys listed in `ignoreKeys` are excluded from
+ * the comparison (used to ignore `synced_at` so it doesn't drive its own
+ * update).
+ *
+ * Mirrors sync-engine UPDATE-branch logic verbatim:
+ *   - newData[key] is null / undefined → callback would `delete fm[key]`
+ *     → real change iff key currently exists in existingFm
+ *   - otherwise → callback would assign → real change iff values differ
+ *
+ * Keys in `existingFm` that are NOT in `newData` are intentionally ignored:
+ * the plugin doesn't own them (they may be user fields or orphaned trakt_
+ * keys from older plugin versions), and processFrontMatter wouldn't touch
+ * them either.
+ */
+export function frontmatterWouldChange(
+  newData: Record<string, unknown>,
+  existingFm: Record<string, unknown>,
+  ignoreKeys: string[] = [],
+): boolean {
+  const ignore = new Set(ignoreKeys);
+  for (const [key, newValue] of Object.entries(newData)) {
+    if (ignore.has(key)) continue;
+    if (newValue === null || newValue === undefined) {
+      if (key in existingFm) return true;
+      continue;
+    }
+    if (!valuesEqual(existingFm[key], newValue)) return true;
+  }
+  return false;
 }

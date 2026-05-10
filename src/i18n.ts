@@ -429,8 +429,8 @@ const STRINGS = {
     "zh-CN": "同步已经在进行中。",
   },
   "notice.syncComplete": {
-    en: "Sync complete: {added} added, {updated} updated, {removed} removed",
-    "zh-CN": "同步完成：新增 {added}，更新 {updated}，移除 {removed}",
+    en: "Sync complete: {added} added, {updated} updated, {unchanged} unchanged, {removed} removed",
+    "zh-CN": "同步完成：新增 {added}，更新 {updated}，未变 {unchanged}，移除 {removed}",
   },
   "notice.syncCompleteWithFailures": {
     en: ", {failed} failed",

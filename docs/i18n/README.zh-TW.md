@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/o1xhack/obsidian-sync-trakt?color=7c3aed)](../../LICENSE)
 [![Min Obsidian version](https://img.shields.io/badge/obsidian-1.4.0%2B-7c3aed)](https://obsidian.md)
 
-**把你的 [Trakt.tv](https://trakt.tv) 觀看記錄變成一份高度本地化的 Markdown 庫 —— 帶逐集觀看時間戳、母語元數據和雙語介面。**
+**把你的 [Trakt.tv](https://trakt.tv) 觀看記錄變成一份高度本地化的 Markdown 庫 —— 帶逐集觀看時間戳、涵蓋 15+ 種語言的元數據，以及不會讓你的 vault 頻繁抖動的安靜增量同步。**
 
 > 🌐 [English](../../README.md) · [简体中文](README.zh-CN.md) · **繁體中文** · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Italiano](README.it.md)
 
@@ -14,9 +14,9 @@
 ## ✨ 為什麼用這個
 
 - **詳細觀看紀錄** —— 每一集是哪一天幾點看的、有沒有重看，全都同步到筆記裡，每天追劇即時更新
-- **元數據本地化** —— 透過 TMDB 把 title / overview / tagline / genres 翻譯成中文（或任何語言），英文原文保留在 `*_original_*` frontmatter 欄位
-- **雙語 UI** —— 設定面板、命令、提示彈窗支援英文和簡體中文；內建 en / zh-CN / zh-TW 三種語言的筆記範本
+- **涵蓋 15+ 種語言的元數據** —— 透過 TMDB 把 title / overview / tagline / genres 翻譯過來。內建預設涵蓋中文（簡體 / 繁體 / 港繁）、日文、韓文、法文、德文、西班牙文（西班牙 / 墨西哥）、葡萄牙文（巴西）、義大利文、俄文，再加一個自訂模式，可填任何 TMDB 支援的 BCP-47 語言代碼。英文原文始終保留在 `*_original_*` frontmatter 欄位
 - **增量同步** _(0.2.0)_ —— 首次同步把本地 TMDB 快取 + Trakt 歷史狀態填好；之後每次同步只拉變化的部分。穩態同步時間從幾分鐘降到幾秒。詳見 [spec 0001](../specs/0001-incremental-sync.md)
+- **安靜寫盤** _(0.3.0)_ —— 同步只重寫**內容真的變了**的筆記。看完一集後，1200 項的影庫只重寫 1 個筆記，而不是 1200 個 —— Obsidian Sync / iCloud / Syncthing 等多裝置同步層不再每次都重傳整個庫。詳見 [spec 0002](../specs/0002-diff-based-write.md)
 
 ## 🎬 詳細觀看紀錄
 
@@ -56,9 +56,9 @@ trakt_metadata_language: zh-TW
 
 <!-- screenshot: metadata-localization -->
 
-## 🌍 雙語 UI 和翻譯過的範本
+## 🌍 外掛 UI 和筆記範本
 
-設定面板、命令面板、提示彈窗都支援 **English** 和 **簡體中文**。內建筆記範本提供英文、簡體中文 (`zh-CN`)、繁體中文 (`zh-TW` / `zh-HK`) 三種；其他語言代碼會回退到英文範本 —— 想用其他語言請手動改範本。
+上面的元數據本地化涵蓋很多語言；**外掛自身的 UI** 是另一條獨立、規模較小的軸。**設定面板、命令面板、提示彈窗**目前支援 **English** 和 **簡體中文**。**內建筆記範本**提供英文、簡體中文 (`zh-CN`)、繁體中文 (`zh-TW` / `zh-HK`) 三種；其他範本語言代碼會回退到英文範本 —— 暫時請手動改範本，或者 [開個 issue](https://github.com/o1xhack/obsidian-sync-trakt/issues) 申請加入預置翻譯。UI 語言按需擴展。
 
 <!-- screenshot: bilingual-ui -->
 
@@ -144,10 +144,12 @@ npm run test:i18n  # 跑煙霧測試
 ## 🗺️ 路線圖
 
 - [x] 詳細的逐集觀看紀錄同步
-- [x] 元數據本地化（TMDB + Trakt 翻譯回退）
-- [x] 雙語外掛 UI（en + zh-CN）
+- [x] 涵蓋 15+ 種預設語言的元數據本地化 + 任何 TMDB 支援語言代碼的自訂模式
+- [x] 雙語外掛 UI（en + zh-CN）；其他語言按需擴展
 - [x] 翻譯過的預設筆記範本（en + zh-CN + zh-TW）
-- [ ] TMDB 元數據快取 —— 切換語言不重打 API
+- [x] TMDB 元數據快取（0.2.0）—— 切換語言不重打 API，穩態同步幾秒鐘搞定
+- [x] Trakt 歷史增量拉取（0.2.0）—— 只拉上次同步後的新觀看事件
+- [x] Diff-based 寫盤（0.3.0）—— 只重寫真的變了的筆記，不再觸發跨裝置同步雪崩
 - [ ] 提交到 Obsidian 第三方外掛目錄
 - [ ] 更多 UI 翻譯（ja / ko / fr / ...）按需增加
 

@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/o1xhack/obsidian-sync-trakt?color=7c3aed)](../../LICENSE)
 [![Min Obsidian version](https://img.shields.io/badge/obsidian-1.4.0%2B-7c3aed)](https://obsidian.md)
 
-**Trasforma la tua cronologia di visione [Trakt.tv](https://trakt.tv) in una libreria Markdown riccamente localizzata — con timestamp per episodio, metadati nella tua lingua e un'interfaccia bilingue.**
+**Trasforma la tua cronologia di visione [Trakt.tv](https://trakt.tv) in una libreria Markdown riccamente localizzata — con timestamp per episodio, metadati in oltre 15 lingue e una sincronizzazione incrementale silenziosa che non agita il tuo vault.**
 
 > 🌐 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · **Italiano**
 
@@ -14,9 +14,9 @@
 ## ✨ Perché?
 
 - **Cronologia di visione dettagliata** — esattamente quale episodio hai visto e quando, comprese le rivisioni, sincronizzato man mano che continui a guardare
-- **Metadati localizzati** — traduzione di titoli / sinossi / tagline / generi via TMDB; gli originali in inglese vengono sempre conservati a fianco
-- **Interfaccia bilingue** — impostazioni, comandi e notifiche in English o 简体中文; modelli di nota integrati in en / zh-CN / zh-TW
+- **Metadati in oltre 15 lingue** — traduzione di titoli / sinossi / tagline / generi via TMDB. Preset integrati per cinese (CN / TW / HK), giapponese, coreano, francese, tedesco, spagnolo (ES / MX), portoghese (BR), italiano, russo — più una modalità personalizzata che accetta qualsiasi codice locale BCP-47 supportato da TMDB. Gli originali in inglese vengono sempre conservati nei campi frontmatter `*_original_*`
 - **Sincronizzazione incrementale** _(0.2.0)_ — la prima sincronizzazione popola la cache TMDB locale e lo stato della cronologia Trakt; le sincronizzazioni successive recuperano solo ciò che è cambiato. Il tempo di sincronizzazione a regime scende da minuti a secondi. Vedi [spec 0001](../specs/0001-incremental-sync.md)
+- **Scritture silenziose** _(0.3.0)_ — la sincronizzazione riscrive solo le note il cui contenuto è effettivamente cambiato. Dopo aver visto un nuovo episodio, una libreria di 1200 voci scrive una nota invece di tutte le 1200 — il tuo livello di sincronizzazione tra dispositivi (Obsidian Sync / iCloud / Syncthing) smette di ri-caricare l'intera libreria ad ogni esecuzione. Vedi [spec 0002](../specs/0002-diff-based-write.md)
 
 ## 🎬 Cronologia di visione dettagliata
 
@@ -56,9 +56,9 @@ I tag e i percorsi tag-note rimangono sempre in inglese — le tue query Datavie
 
 <!-- screenshot: metadata-localization -->
 
-## 🌍 Interfaccia bilingue + modelli tradotti
+## 🌍 Interfaccia del plugin + modelli di nota
 
-La scheda impostazioni, la palette dei comandi e i popup di notifica parlano sia **English** che **简体中文**. I modelli di nota integrati sono disponibili in inglese, cinese semplificato (`zh-CN`) e cinese tradizionale (`zh-TW` / `zh-HK`); gli altri codici lingua ricadono sul modello inglese — personalizza manualmente se desideri un'altra lingua.
+La localizzazione dei metadati sopra copre molte lingue; l'**interfaccia propria del plugin** è un asse separato e più piccolo. **La scheda impostazioni, la palette dei comandi e i popup di notifica** attualmente parlano **English** e **简体中文**. **I modelli di nota integrati** sono disponibili in inglese, cinese semplificato (`zh-CN`) e cinese tradizionale (`zh-TW` / `zh-HK`); gli altri codici lingua del modello ricadono sul modello inglese — personalizza manualmente per ora, oppure [apri un issue](https://github.com/o1xhack/obsidian-sync-trakt/issues) per richiedere una traduzione integrata. Altre lingue UI su richiesta.
 
 <!-- screenshot: bilingual-ui -->
 
@@ -144,10 +144,12 @@ Quindi copia `main.js`, `manifest.json`, `styles.css` in `<vault>/.obsidian/plug
 ## 🗺️ Roadmap
 
 - [x] Sincronizzazione dettagliata della cronologia per episodio
-- [x] Localizzazione metadati (TMDB + ripiego traduzioni Trakt)
-- [x] Interfaccia plugin bilingue (en + zh-CN)
+- [x] Localizzazione metadati su oltre 15 lingue predefinite + qualsiasi codice locale supportato da TMDB tramite modalità personalizzata
+- [x] Interfaccia plugin bilingue (en + zh-CN); altre lingue su richiesta
 - [x] Modelli di nota predefiniti tradotti (en + zh-CN + zh-TW)
-- [ ] Cache metadati TMDB — evitare re-download al cambio di lingua
+- [x] Cache metadati TMDB (0.2.0) — evitare re-download al cambio di lingua, sincronizzazione stabile in pochi secondi
+- [x] Recupero incrementale della cronologia Trakt (0.2.0) — recupera solo i nuovi eventi di visione dall'ultima sincronizzazione
+- [x] Scritture differenziali (0.3.0) — riscrive solo le note effettivamente cambiate, niente più tempesta di sincronizzazione tra dispositivi
 - [ ] Invio alla directory Community Plugins di Obsidian
 - [ ] Altre traduzioni UI (ja / ko / fr / ...) su richiesta
 

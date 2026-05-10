@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/o1xhack/obsidian-sync-trakt?color=7c3aed)](../../LICENSE)
 [![Min Obsidian version](https://img.shields.io/badge/obsidian-1.4.0%2B-7c3aed)](https://obsidian.md)
 
-**Verwandle deinen [Trakt.tv](https://trakt.tv) Sehverlauf in eine reichhaltig lokalisierte Markdown-Bibliothek — mit episodengenauen Zeitstempeln, Metadaten in deiner Sprache und einer zweisprachigen Oberfläche.**
+**Verwandle deinen [Trakt.tv](https://trakt.tv) Sehverlauf in eine reichhaltig lokalisierte Markdown-Bibliothek — mit episodengenauen Zeitstempeln, Metadaten in 15+ Sprachen und einer leisen inkrementellen Synchronisation, die deinen Vault nicht in Bewegung versetzt.**
 
 > 🌐 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · **Deutsch** · [Español](README.es.md) · [Italiano](README.it.md)
 
@@ -14,9 +14,9 @@
 ## ✨ Warum?
 
 - **Detaillierter Sehverlauf** — genau welche Episode du wann gesehen hast, einschließlich erneuter Visionierungen, synchron gehalten beim Weiterschauen
-- **Lokalisierte Metadaten** — Übersetzung von Titeln / Beschreibungen / Taglines / Genres über TMDB; englische Originale werden immer parallel beibehalten
-- **Zweisprachige Oberfläche** — Einstellungen, Befehle und Hinweise in English oder 简体中文; mitgelieferte Notiz-Vorlagen in en / zh-CN / zh-TW
+- **Metadaten in 15+ Sprachen** — Übersetzung von Titeln / Beschreibungen / Taglines / Genres über TMDB. Integrierte Voreinstellungen für Chinesisch (CN / TW / HK), Japanisch, Koreanisch, Französisch, Deutsch, Spanisch (ES / MX), Portugiesisch (BR), Italienisch, Russisch — plus ein benutzerdefinierter Modus, der jeden von TMDB unterstützten BCP-47-Sprachcode akzeptiert. Englische Originale werden immer in `*_original_*` Frontmatter-Feldern beibehalten
 - **Inkrementelle Synchronisation** _(0.2.0)_ — die erste Synchronisation füllt den lokalen TMDB-Cache und den Trakt-Verlaufszustand; nachfolgende Synchronisationen rufen nur Änderungen ab. Die Sync-Zeit im eingeschwungenen Zustand sinkt von Minuten auf wenige Sekunden. Siehe [spec 0001](../specs/0001-incremental-sync.md)
+- **Leise Schreibvorgänge** _(0.3.0)_ — Sync schreibt nur Notizen neu, deren Inhalt sich tatsächlich geändert hat. Nach dem Ansehen einer neuen Episode schreibt eine 1200-Eintrag-Bibliothek eine Notiz statt aller 1200 — deine geräteübergreifende Sync-Schicht (Obsidian Sync / iCloud / Syncthing) hört auf, die gesamte Bibliothek bei jedem Lauf erneut hochzuladen. Siehe [spec 0002](../specs/0002-diff-based-write.md)
 
 ## 🎬 Detaillierter Sehverlauf
 
@@ -56,9 +56,9 @@ Tags und Tag-Note-Pfade bleiben immer auf Englisch — deine bestehenden Datavie
 
 <!-- screenshot: metadata-localization -->
 
-## 🌍 Zweisprachige Oberfläche + übersetzte Vorlagen
+## 🌍 Plugin-Oberfläche + Notiz-Vorlagen
 
-Die Einstellungsregisterkarte, die Befehlspalette und Hinweis-Popups sprechen sowohl **English** als auch **简体中文**. Mitgelieferte Notiz-Vorlagen gibt es in Englisch, vereinfachtem Chinesisch (`zh-CN`) und traditionellem Chinesisch (`zh-TW` / `zh-HK`); andere Sprachcodes greifen auf die englische Vorlage zurück — passe sie manuell an, wenn du eine andere Sprache möchtest.
+Die Metadaten-Lokalisierung oben deckt viele Sprachen ab; die **eigene UI des Plugins** ist eine separate, kleinere Achse. **Die Einstellungsregisterkarte, die Befehlspalette und Hinweis-Popups** sprechen derzeit **English** und **简体中文**. **Mitgelieferte Notiz-Vorlagen** gibt es in Englisch, vereinfachtem Chinesisch (`zh-CN`) und traditionellem Chinesisch (`zh-TW` / `zh-HK`); andere Vorlagen-Sprachcodes greifen auf die englische Vorlage zurück — passe sie vorerst manuell an oder [öffne ein Issue](https://github.com/o1xhack/obsidian-sync-trakt/issues), um eine mitgelieferte Übersetzung anzufordern. Weitere UI-Sprachen auf Anfrage.
 
 <!-- screenshot: bilingual-ui -->
 
@@ -144,10 +144,12 @@ Dann kopiere `main.js`, `manifest.json`, `styles.css` nach `<vault>/.obsidian/pl
 ## 🗺️ Roadmap
 
 - [x] Detaillierte Sehverlaufs-Synchronisation pro Episode
-- [x] Metadaten-Lokalisierung (TMDB + Trakt-Übersetzungs-Rückfall)
-- [x] Zweisprachige Plugin-Oberfläche (en + zh-CN)
+- [x] Metadaten-Lokalisierung über 15+ Sprach-Voreinstellungen + jeden von TMDB unterstützten Locale-Code via benutzerdefiniertem Modus
+- [x] Zweisprachige Plugin-Oberfläche (en + zh-CN); weitere auf Anfrage
 - [x] Übersetzte Standard-Notiz-Vorlagen (en + zh-CN + zh-TW)
-- [ ] TMDB-Metadaten-Cache — Sprachwechsel ohne erneutes API-Abfragen
+- [x] TMDB-Metadaten-Cache (0.2.0) — Sprachwechsel ohne erneutes API-Abfragen, stabiler Sync in Sekunden
+- [x] Inkrementelle Trakt-Verlaufsabfrage (0.2.0) — nur neue Visionierungen seit letzter Synchronisation abrufen
+- [x] Diff-basierte Schreibvorgänge (0.3.0) — nur tatsächlich geänderte Notizen neu schreiben, kein Sync-Sturm zwischen Geräten mehr
 - [ ] Einreichung beim Obsidian Community Plugins-Verzeichnis
 - [ ] Weitere UI-Übersetzungen (ja / ko / fr / ...) auf Anfrage
 

@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/o1xhack/obsidian-sync-trakt?color=7c3aed)](LICENSE)
 [![Min Obsidian version](https://img.shields.io/badge/obsidian-1.4.0%2B-7c3aed)](https://obsidian.md)
 
-**Turn your [Trakt.tv](https://trakt.tv) watch history into a richly localized Markdown library — with per-episode timestamps, metadata in your language, and a bilingual UI.**
+**Turn your [Trakt.tv](https://trakt.tv) watch history into a richly localized Markdown library — with per-episode timestamps, metadata in 15+ languages, and quiet incremental sync that doesn't churn your vault.**
 
 > 🌐 **English** · [简体中文](docs/i18n/README.zh-CN.md) · [繁體中文](docs/i18n/README.zh-TW.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Deutsch](docs/i18n/README.de.md) · [Español](docs/i18n/README.es.md) · [Italiano](docs/i18n/README.it.md)
 
@@ -14,9 +14,9 @@
 ## ✨ Why?
 
 - **Detailed watch history** — exactly which episode you watched at what time, including re-watches, kept in sync as you keep watching
-- **Localized metadata** — translate titles / overviews / taglines / genres via TMDB; English originals always preserved alongside
-- **Bilingual UI** — settings, commands, and notices in English or 简体中文; bundled note templates in en / zh-CN / zh-TW
+- **Metadata in 15+ languages** — translate titles / overviews / taglines / genres via TMDB. Built-in presets for Chinese (CN / TW / HK), Japanese, Korean, French, German, Spanish (ES / MX), Portuguese (BR), Italian, Russian — plus a custom mode that accepts any TMDB-supported BCP-47 locale code. English originals are always preserved alongside in `*_original_*` frontmatter fields
 - **Fast incremental sync** _(0.2.0)_ — first sync seeds the local TMDB cache + Trakt history state; subsequent syncs only fetch what changed. Steady-state sync time drops from minutes to single-digit seconds. See [spec 0001](docs/specs/0001-incremental-sync.md)
+- **Quiet writes** _(0.3.0)_ — sync only rewrites notes whose content actually changed. After watching one new episode, a 1200-item library writes one note instead of all 1200 — your cross-device sync layer (Obsidian Sync / iCloud / Syncthing) stops re-uploading the entire library every run. See [spec 0002](docs/specs/0002-diff-based-write.md)
 
 ## 🎬 Detailed watch history
 
@@ -56,9 +56,9 @@ Tags and tag-note paths always stay in English — your existing Dataview querie
 
 <!-- screenshot: metadata-localization -->
 
-## 🌍 Bilingual UI + translated templates
+## 🌍 Plugin UI + note templates
 
-The settings tab, command palette, and notice popups speak both **English** and **简体中文**. Bundled note templates ship in English, Simplified Chinese (`zh-CN`), and Traditional Chinese (`zh-TW` / `zh-HK`); other language codes fall back to the English template — customize manually if you want a different language.
+Metadata localization above covers many languages; the plugin's own UI surface is a separate, smaller story. **Settings tab, command palette, and notice popups** currently speak **English** and **简体中文**. **Bundled note templates** ship in English, Simplified Chinese (`zh-CN`), and Traditional Chinese (`zh-TW` / `zh-HK`); other template-language codes fall back to the English template — edit the template manually for now, or [open an issue](https://github.com/o1xhack/obsidian-sync-trakt/issues) to request a bundled translation. More UI languages on demand.
 
 <!-- screenshot: bilingual-ui -->
 
@@ -144,10 +144,12 @@ Then copy `main.js`, `manifest.json`, `styles.css` to `<vault>/.obsidian/plugins
 ## 🗺️ Roadmap
 
 - [x] Detailed per-episode watch-history sync
-- [x] Metadata localization (TMDB + Trakt translations fallback)
-- [x] Bilingual plugin UI (en + zh-CN)
+- [x] Metadata localization across 15+ language presets + any TMDB-supported locale via custom mode
+- [x] Bilingual plugin UI (en + zh-CN); more on demand
 - [x] Translated default note templates (en + zh-CN + zh-TW)
-- [ ] TMDB metadata cache — skip re-fetching on language switch
+- [x] TMDB metadata cache (0.2.0) — skip re-fetching on language switch + steady-state sync in seconds
+- [x] Incremental Trakt history fetch (0.2.0) — only fetch new watch events since last sync
+- [x] Diff-based writes (0.3.0) — only rewrite notes that actually changed, no more cross-device sync storm
 - [ ] Submit to Obsidian Community Plugins directory
 - [ ] More plugin-UI translations (ja / ko / fr / ...) on demand
 

@@ -215,7 +215,7 @@ Tag notes 是你笔记之间相互链接的主题文件，构建关系图谱。*
 | `trakt_url` | string | Trakt 页面 URL。 |
 | `trakt_imdb_url` | string | IMDB 页面 URL。 |
 | `trakt_poster_url` | string | TMDB 海报图片 URL。 |
-| `trakt_synced_at` | string | 最近同步的 ISO 时间戳。 |
+| `trakt_synced_at` | string | 同步最近一次**真正修改这条笔记**的 ISO 时间戳。0.3.0 起只在笔记内容实际有变化时才更新 —— 不是每次 sync 都刷新。可作为 Bases / Dataview "最近变更" 视图的排序键。 |
 | `trakt_tag_notes` | list | tag note 文件的 wikilink（"Add tag notes to frontmatter" 开启时）。 |
 | `tags` | list | 自动生成的 Obsidian 标签（"Add tags" 开启时）。 |
 | `trakt_original_title` | string | 英文 / 源语言标题。仅在 **Metadata language** 设置时存在。 |

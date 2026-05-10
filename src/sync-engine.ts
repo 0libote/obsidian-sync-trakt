@@ -31,6 +31,7 @@ import { ensureValidToken } from "./trakt-auth";
 import {
   renderNote,
   buildFrontmatterData,
+  frontmatterWouldChange,
   updateManagedBodySections,
 } from "./note-renderer";
 import {
@@ -266,13 +267,14 @@ export class SyncEngine {
     const t = getTranslator(this.settings.uiLanguage);
     if (this.syncing) {
       new Notice(t("notice.alreadySyncing"));
-      return { added: 0, updated: 0, removed: 0, failed: 0, errors: [] };
+      return { added: 0, updated: 0, unchanged: 0, removed: 0, failed: 0, errors: [] };
     }
 
     this.syncing = true;
     const result: SyncResult = {
       added: 0,
       updated: 0,
+      unchanged: 0,
       removed: 0,
       failed: 0,
       errors: [],
@@ -318,10 +320,11 @@ export class SyncEngine {
       await this.saveSettings();
 
       // 8. Show result
-      console.debug(`[Traktr] Sync complete — added: ${result.added}, updated: ${result.updated}, removed: ${result.removed}, failed: ${result.failed}`);
+      console.debug(`[Traktr] Sync complete — added: ${result.added}, updated: ${result.updated}, unchanged: ${result.unchanged}, removed: ${result.removed}, failed: ${result.failed}`);
       let msg = t("notice.syncComplete", {
         added: result.added,
         updated: result.updated,
+        unchanged: result.unchanged,
         removed: result.removed,
       });
       if (result.failed > 0) {
@@ -675,38 +678,98 @@ export class SyncEngine {
           const filePath = normalizePath(`${folderPath}/${filename}.md`);
           await this.app.vault.create(filePath, renderNote(item, this.settings));
           result.added++;
+        } else if (this.settings.overwriteExisting) {
+          // Full-overwrite mode: documented to always rewrite. Diff path
+          // bypassed by user choice.
+          await this.app.vault.process(existingFile, () =>
+            renderNote(item, this.settings)
+          );
+          result.updated++;
         } else {
-          // UPDATE
-          if (this.settings.overwriteExisting) {
-            // Replace full note content atomically
-            await this.app.vault.process(existingFile, () =>
-              renderNote(item, this.settings)
+          // [0.3.0] Diff-first update — see spec 0002.
+          //
+          // The 0.2.x code unconditionally called processFrontMatter +
+          // (optionally) vault.process for every existing note, which
+          // touched all ~1200 files' mtimes every sync and produced a
+          // cross-device-sync storm even when nothing actually changed.
+          //
+          // Now: predict whether either write would meaningfully change
+          // the file. Skip both when neither would. The synced_at field is
+          // ignored in the frontmatter diff so it doesn't drive its own
+          // update; it gets stamped to "now" only when SOMETHING ELSE
+          // really changed.
+          //
+          // Failure-mode contract: if the diff is wrong, err on the side
+          // of writing (false positive = wasted I/O; false negative =
+          // user data is stale). See spec 0002 §"Edge cases" for the
+          // matrix and rationale.
+
+          const newData = buildFrontmatterData(item, this.settings);
+          const syncedAtKey = `${this.settings.propertyPrefix}synced_at`;
+
+          // Read existing frontmatter via Obsidian's metadata cache
+          // (returns properly-typed values: numbers stay numbers, arrays
+          // stay arrays — unlike our own parseFrontmatter() which is
+          // string-only). When the cache is missing or unparsed (rare:
+          // fresh file Obsidian hasn't indexed yet, or malformed YAML),
+          // we conservatively treat that as "definitely write".
+          const cached = this.app.metadataCache.getFileCache(existingFile);
+          const existingFm = cached?.frontmatter as
+            | Record<string, unknown>
+            | undefined;
+          const fmChanged =
+            !existingFm ||
+            frontmatterWouldChange(newData, existingFm, [syncedAtKey]);
+
+          // Body diff (only when watch-history detail is on — that's the
+          // one section we manage in the body). We pre-read the file once
+          // to compute the diff; the actual write inside vault.process
+          // re-reads atomically to avoid races with frontmatter updates
+          // that may have just happened in this same iteration.
+          let bodyChanged = false;
+          if (this.settings.syncWatchedDetail) {
+            const oldContent = await this.app.vault.cachedRead(existingFile);
+            const newContent = updateManagedBodySections(
+              oldContent,
+              item,
+              this.settings,
             );
-          } else {
-            // Frontmatter-only update via Obsidian's API — preserves the note body
-            await this.app.fileManager.processFrontMatter(
-              existingFile,
-              (fm: Record<string, unknown>) => {
-                const newData = buildFrontmatterData(item, this.settings);
-                for (const [key, value] of Object.entries(newData)) {
-                  if (value === null || value === undefined) {
-                    delete fm[key];
-                  } else {
-                    fm[key] = value;
-                  }
+            bodyChanged = oldContent !== newContent;
+          }
+
+          if (!fmChanged && !bodyChanged) {
+            // Nothing to do — note is already in sync. ZERO writes.
+            // synced_at on disk stays at whatever its previous value was,
+            // which now correctly reflects "last actual change" instead
+            // of "last sync touch".
+            result.unchanged++;
+            continue;
+          }
+
+          // At least one real change. Always run processFrontMatter so
+          // synced_at gets bumped to now (even in body-only-change cases),
+          // and so any newly-changed frontmatter fields land.
+          await this.app.fileManager.processFrontMatter(
+            existingFile,
+            (fm: Record<string, unknown>) => {
+              for (const [key, value] of Object.entries(newData)) {
+                if (value === null || value === undefined) {
+                  delete fm[key];
+                } else {
+                  fm[key] = value;
                 }
               }
+            },
+          );
+
+          if (bodyChanged) {
+            // Re-compute inside vault.process so we operate on the freshest
+            // content (post-processFrontMatter). updateManagedBodySections
+            // is pure and idempotent, so re-running it on the latest content
+            // is safe and produces the same body section.
+            await this.app.vault.process(existingFile, (oldContent) =>
+              updateManagedBodySections(oldContent, item, this.settings),
             );
-            // Body remains the user's territory — except for the
-            // machine-managed Watch History block, which the user
-            // explicitly opted into via syncWatchedDetail. Without this
-            // step, the watch_history list would only show whatever was
-            // current at note-CREATE time and never update afterwards.
-            if (this.settings.syncWatchedDetail) {
-              await this.app.vault.process(existingFile, (oldContent) =>
-                updateManagedBodySections(oldContent, item, this.settings),
-              );
-            }
           }
           result.updated++;
         }

@@ -270,6 +270,7 @@ export interface NormalizedItem {
 export interface SyncResult {
   added: number;
   updated: number;
+  unchanged: number;
   removed: number;
   failed: number;
   errors: string[];

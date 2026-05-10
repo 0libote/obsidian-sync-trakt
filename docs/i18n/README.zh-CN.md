@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/o1xhack/obsidian-sync-trakt?color=7c3aed)](../../LICENSE)
 [![Min Obsidian version](https://img.shields.io/badge/obsidian-1.4.0%2B-7c3aed)](https://obsidian.md)
 
-**把你的 [Trakt.tv](https://trakt.tv) 观看记录变成一份高度本地化的 Markdown 库 —— 带逐集观看时间戳、母语元数据和双语界面。**
+**把你的 [Trakt.tv](https://trakt.tv) 观看记录变成一份高度本地化的 Markdown 库 —— 带逐集观看时间戳、覆盖 15+ 语言的元数据，以及不会让你 vault 频繁抖动的安静增量同步。**
 
 > 🌐 [English](../../README.md) · **简体中文** · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Italiano](README.it.md)
 
@@ -14,9 +14,9 @@
 ## ✨ 为什么用这个
 
 - **详细观看记录** —— 每一集是哪一天几点看的、有没有重看，全都同步到笔记里，每天追剧实时更新
-- **元数据本地化** —— 通过 TMDB 把 title / overview / tagline / genres 翻译成中文（或任何语言），英文原文保留在 `*_original_*` frontmatter 字段
-- **双语 UI** —— 设置面板、命令、提示弹窗支持英文和简体中文；内置 en / zh-CN / zh-TW 三种语言的笔记模板
+- **覆盖 15+ 语言的元数据** —— 通过 TMDB 把 title / overview / tagline / genres 翻译过来。内置预设涵盖中文（简体 / 繁体 / 港繁）、日文、韩文、法文、德文、西班牙文（西班牙 / 墨西哥）、葡萄牙文（巴西）、意大利文、俄文，外加一个自定义模式，可填任意 TMDB 支持的 BCP-47 语言代码。英文原文始终保留在 `*_original_*` frontmatter 字段
 - **增量同步** _(0.2.0)_ —— 首次同步把本地 TMDB 缓存 + Trakt 历史状态填好；之后每次同步只拉变化的部分。稳态同步时间从几分钟降到几秒。详见 [spec 0001](../specs/0001-incremental-sync.md)
+- **安静写盘** _(0.3.0)_ —— 同步只重写**内容真的变了**的笔记。看完一集后，1200 项的影库只重写 1 个笔记，而不是 1200 个 —— Obsidian Sync / iCloud / Syncthing 等多设备同步层不再每次都重传整个库。详见 [spec 0002](../specs/0002-diff-based-write.md)
 
 ## 🎬 详细观看记录
 
@@ -56,9 +56,9 @@ trakt_metadata_language: zh-CN
 
 <!-- screenshot: metadata-localization -->
 
-## 🌍 双语 UI 和翻译过的模板
+## 🌍 插件 UI 和笔记模板
 
-设置面板、命令面板、提示弹窗都支持 **English** 和 **简体中文**。内置笔记模板提供英文、简体中文 (`zh-CN`)、繁体中文 (`zh-TW` / `zh-HK`) 三种；其他语言代码会回退到英文模板 —— 想用其他语言请手动改模板。
+上面的元数据本地化覆盖很多语言；**插件自身的 UI** 是另一条独立、规模较小的轴。**设置面板、命令面板、提示弹窗**目前支持 **English** 和 **简体中文**。**内置笔记模板**提供英文、简体中文 (`zh-CN`)、繁体中文 (`zh-TW` / `zh-HK`) 三种；其他模板语言代码会回退到英文模板 —— 暂时请手动改模板，或者 [开个 issue](https://github.com/o1xhack/obsidian-sync-trakt/issues) 申请加入预置翻译。UI 语言按需扩展。
 
 <!-- screenshot: bilingual-ui -->
 
@@ -144,10 +144,12 @@ npm run test:i18n  # 跑冒烟测试
 ## 🗺️ 路线图
 
 - [x] 详细的逐集观看记录同步
-- [x] 元数据本地化（TMDB + Trakt 翻译回退）
-- [x] 双语插件 UI（en + zh-CN）
+- [x] 覆盖 15+ 预设语言的元数据本地化 + 任意 TMDB 支持语言代码的自定义模式
+- [x] 双语插件 UI（en + zh-CN）；其他语言按需扩展
 - [x] 翻译过的默认笔记模板（en + zh-CN + zh-TW）
-- [ ] TMDB 元数据缓存 —— 切换语言不重打 API
+- [x] TMDB 元数据缓存（0.2.0）—— 切换语言不重打 API，稳态同步几秒钟搞定
+- [x] Trakt 历史增量拉取（0.2.0）—— 只拉上次同步之后的新观看事件
+- [x] Diff-based 写盘（0.3.0）—— 只重写真的变了的笔记，不再触发跨设备同步雪崩
 - [ ] 提交到 Obsidian 第三方插件目录
 - [ ] 更多 UI 翻译（ja / ko / fr / ...）按需增加
 

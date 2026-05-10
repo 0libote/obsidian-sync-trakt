@@ -214,7 +214,7 @@ All fields below are prefixed with the configured **Property prefix** (default `
 | `trakt_url` | string | Trakt page URL. |
 | `trakt_imdb_url` | string | IMDB page URL. |
 | `trakt_poster_url` | string | TMDB poster image URL. |
-| `trakt_synced_at` | string | ISO timestamp of last sync. |
+| `trakt_synced_at` | string | ISO timestamp of when sync last *actually modified this note*. Since 0.3.0, only updates when the note's content changes — not on every sync. Useful as a Bases / Dataview sort key for "recently changed" views. |
 | `trakt_tag_notes` | list | Wikilinks to tag note files (when "Add tag notes to frontmatter" is on). |
 | `tags` | list | Auto-generated Obsidian tags (when "Add tags" is on). |
 | `trakt_original_title` | string | English/source-language title. Only present when **Metadata language** is set. |
