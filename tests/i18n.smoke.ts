@@ -34,6 +34,7 @@ import {
   clearTmdbCache,
   tmdbCacheStats,
   fetchMovieMetadata,
+  verifyTmdbApiKey,
 } from "../src/tmdb-api";
 import {
   mergeHistoryEvents,
@@ -1769,6 +1770,112 @@ void (async () => {
       "empty originalTitle skips tier 1, goes straight to tier-2-without-original",
     );
     assertEq(result.tier, 2, "tier === 2");
+  }
+
+  // ── Test 37-40: spec 0.3.2 TMDB key verification ──────────────────────
+  // The Test button in the settings tab runs verifyTmdbApiKey() against
+  // TMDB's /configuration endpoint. Locking in the discriminated-result
+  // contract here so the UI can branch on `reason` without re-parsing
+  // free-form error strings.
+
+  console.log("\n[37] verifyTmdbApiKey — empty key short-circuits (no network call)");
+  {
+    const stub = await import("./stub-obsidian");
+    stub.resetRequestUrlMock(() => ({ status: 200, json: {}, headers: {} }));
+    const before = stub.requestUrlMock.calls.length;
+
+    const result1 = await verifyTmdbApiKey("");
+    const result2 = await verifyTmdbApiKey("   ");
+
+    assertEq(stub.requestUrlMock.calls.length, before,
+      "empty / whitespace-only input never hits the network");
+    assertTrue(!result1.ok && result1.reason === "empty",
+      "empty string → reason='empty'");
+    assertTrue(!result2.ok && result2.reason === "empty",
+      "whitespace → reason='empty'");
+  }
+
+  console.log("\n[38] verifyTmdbApiKey — 200 OK returns ok:true");
+  {
+    const stub = await import("./stub-obsidian");
+    stub.resetRequestUrlMock(() => ({
+      status: 200,
+      json: { images: { base_url: "https://image.tmdb.org/t/p/" } },
+      headers: {},
+    }));
+
+    const result = await verifyTmdbApiKey("valid-looking-key-12345");
+
+    assertTrue(result.ok, "200 status → ok=true");
+    assertEq(stub.requestUrlMock.calls.length, 1, "one network call");
+    assertTrue(
+      stub.requestUrlMock.calls[0].url.includes("/configuration"),
+      "hits /configuration endpoint, not a per-item endpoint",
+    );
+    assertTrue(
+      stub.requestUrlMock.calls[0].url.includes("api_key=valid-looking-key-12345"),
+      "passes the supplied key as ?api_key=",
+    );
+  }
+
+  console.log("\n[39] verifyTmdbApiKey — 401 returns unauthorized with TMDB's status_message");
+  {
+    const stub = await import("./stub-obsidian");
+    stub.resetRequestUrlMock(() => ({
+      status: 401,
+      json: { status_message: "Invalid API key: You must be granted a valid key." },
+      headers: {},
+    }));
+
+    const result = await verifyTmdbApiKey("bogus");
+
+    assertTrue(!result.ok && result.reason === "unauthorized",
+      "401 → reason='unauthorized'");
+    assertTrue(
+      !result.ok && result.detail?.includes("Invalid API key") === true,
+      "TMDB's status_message surfaced to UI via result.detail",
+    );
+
+    // Also accept 403
+    stub.resetRequestUrlMock(() => ({
+      status: 403,
+      json: { status_message: "Suspended key" },
+      headers: {},
+    }));
+    const result403 = await verifyTmdbApiKey("suspended-key");
+    assertTrue(!result403.ok && result403.reason === "unauthorized",
+      "403 also classifies as unauthorized");
+  }
+
+  console.log("\n[40] verifyTmdbApiKey — other statuses & exceptions classify as network");
+  {
+    const stub = await import("./stub-obsidian");
+
+    // Server-side error
+    stub.resetRequestUrlMock(() => ({
+      status: 503,
+      json: {},
+      headers: {},
+    }));
+    const r503 = await verifyTmdbApiKey("any-key");
+    assertTrue(!r503.ok && r503.reason === "network",
+      "5xx → reason='network'");
+    assertTrue(
+      !r503.ok && r503.detail?.includes("503") === true,
+      "503 detail mentions the status code",
+    );
+
+    // Thrown exception (DNS failure, fetch timeout, etc.)
+    stub.resetRequestUrlMock(() => {
+      throw new Error("getaddrinfo ENOTFOUND api.themoviedb.org");
+    });
+    const rEx = await verifyTmdbApiKey("any-key");
+    assertTrue(!rEx.ok && rEx.reason === "network",
+      "thrown exception → reason='network'");
+    assertTrue(
+      !rEx.ok && rEx.detail?.includes("ENOTFOUND") === true,
+      "exception message surfaced via result.detail",
+    );
   }
 
   console.log(`\n${"=".repeat(60)}`);

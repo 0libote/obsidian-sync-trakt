@@ -81,6 +81,22 @@ trakt_metadata_language: zh-CN
 2. 设置 → **Obsidian Sync Trakt** → 填 Trakt + TMDB API key（[配置指南](SETUP.zh-CN.md)）
 3. 命令面板 → **Traktr: Sync**
 
+## 🔑 API key 各自解锁什么
+
+插件用到两个 API。**Trakt 是必需的** —— 没有它插件什么都同步不了。**TMDB 是可选的**，但解锁的恰好是大多数人安装本插件的真正动机。具体如下：
+
+| 功能 | Trakt API<br/>_（必需）_ | TMDB API<br/>_（推荐）_ |
+|---|:---:|:---:|
+| 同步 Trakt 库（watchlist、watched、favorites、ratings） | ✅ | — |
+| 逐集观看时间戳 | ✅ | — |
+| title / overview / tagline 翻译成你的语言 | ✅ 基础 | ✅ 更高质量 |
+| **genres 翻译成你的语言** | ❌ | ✅ |
+| **笔记内嵌入海报图片** | ❌ | ✅ |
+
+如果你只想看英文内容、也不在意海报，TMDB 可以留空 —— 光 Trakt 就够。如果想要非英文的完整本地化（包括 genres 和海报），**请填 TMDB key**（[免费注册](https://www.themoviedb.org/settings/api)）。粘贴 key 之后，点旁边的 **Test** 按钮验证是否有效，再做第一次同步。
+
+→ [两个 key 的完整配置教程](SETUP.zh-CN.md)
+
 ## 📦 安装
 
 <details>

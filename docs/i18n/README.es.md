@@ -81,6 +81,22 @@ Filtra por `trakt_type = "movie"` / `"show"`, ordena por `trakt_year` / `trakt_r
 2. Ajustes → **Obsidian Sync Trakt** → introduce tus claves API de Trakt + TMDB ([guía SETUP](../SETUP.md))
 3. Paleta de comandos → **Traktr: Sync**
 
+## 🔑 Claves API: qué desbloquea cada una
+
+El plugin usa dos API. **Trakt es obligatoria** — sin ella el plugin no puede sincronizar nada. **TMDB es opcional** pero desbloquea la mayor parte de lo que hace que valga la pena instalarlo. Detalles:
+
+| Función | API Trakt<br/>_(requerida)_ | API TMDB<br/>_(recomendada)_ |
+|---|:---:|:---:|
+| Sincronizar tu biblioteca Trakt (watchlist, watched, favorites, ratings) | ✅ | — |
+| Marcas de tiempo de visualización por episodio | ✅ | — |
+| Título / sinopsis / lema en tu idioma | ✅ básico | ✅ mayor calidad |
+| **Géneros en tu idioma** | ❌ | ✅ |
+| **Imágenes de pósters incrustadas en las notas** | ❌ | ✅ |
+
+Si solo quieres contenido en inglés y no te interesan los pósters, deja TMDB en blanco — Trakt sola basta. Para una localización completa no-inglesa (incluyendo géneros y pósters), **añade una clave TMDB** ([registro gratuito](https://www.themoviedb.org/settings/api)). Después de pegar tu clave, haz clic en el botón **Test** junto al campo para verificar que funciona antes de tu primera sincronización.
+
+→ [Procedimiento completo para ambas claves](../SETUP.md)
+
 ## 📦 Instalación
 
 <details>

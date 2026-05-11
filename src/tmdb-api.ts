@@ -119,6 +119,67 @@ const inFlightRevalidations = new Set<string>();
  * `saveSettings()` after the surrounding sync run completes. We don't save
  * per-call to avoid serializing data.json hundreds of times during one sync.
  */
+/**
+ * [0.3.2] Verify a TMDB API key works by hitting `/configuration` — a
+ * lightweight endpoint that returns image-base URLs and rate-limit info,
+ * authenticated the same way as the real fetch endpoints we use elsewhere.
+ *
+ * Returns a discriminated union so callers can render the right message
+ * without re-parsing error strings.
+ *
+ * Designed for a settings-tab "Test" button — runs once, never cached,
+ * never touches the persistent TMDB cache. Empty input is a fast-path
+ * `{ ok: false, reason: "empty" }` so the button can show a sensible
+ * error without making a network call.
+ */
+export type TmdbVerifyResult =
+  | { ok: true }
+  | { ok: false; reason: "empty" | "unauthorized" | "network"; detail?: string };
+
+export async function verifyTmdbApiKey(
+  apiKey: string,
+): Promise<TmdbVerifyResult> {
+  const key = apiKey.trim();
+  if (!key) return { ok: false, reason: "empty" };
+
+  const url = `${TMDB_BASE}/configuration?api_key=${encodeURIComponent(key)}`;
+  try {
+    const response = await requestUrl({
+      url,
+      method: "GET",
+      // `throw: false` so we can inspect the status code on 401/404 etc.
+      // instead of catching a generic exception. TMDB returns 401 for an
+      // invalid key (with a `status_message` JSON body) which is what we
+      // want to surface verbatim to the user.
+      throw: false,
+    });
+    if (response.status === 200) return { ok: true };
+    if (response.status === 401 || response.status === 403) {
+      // Try to extract TMDB's own "Invalid API key" message for the
+      // tooltip — falls back to a generic string on parse failure.
+      let detail: string | undefined;
+      try {
+        const body = response.json as { status_message?: string };
+        detail = body?.status_message;
+      } catch {
+        /* ignore — detail stays undefined */
+      }
+      return { ok: false, reason: "unauthorized", detail };
+    }
+    return {
+      ok: false,
+      reason: "network",
+      detail: `HTTP ${response.status}`,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "network",
+      detail: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 export async function fetchMovieMetadata(
   tmdbId: number,
   apiKey: string,

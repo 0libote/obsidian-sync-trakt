@@ -45,3 +45,31 @@
   font-size: 0.9em;
   margin-bottom: 1em;
 }
+
+/* [0.3.2] TMDB key Test button result line + missing-key warning banner. */
+.trakt-test-result {
+  margin-top: 0.5em;
+  font-size: 0.9em;
+}
+
+.trakt-test-result.is-ok {
+  color: var(--color-green);
+}
+
+.trakt-test-result.is-error {
+  color: var(--color-red);
+}
+
+.trakt-test-result.is-muted {
+  color: var(--text-muted);
+}
+
+.trakt-tmdb-warning {
+  margin-top: -0.5em;
+  margin-bottom: 1em;
+  padding: 0.6em 0.8em;
+  border-radius: 4px;
+  background: var(--background-modifier-error-hover);
+  color: var(--text-normal);
+  font-size: 0.9em;
+}

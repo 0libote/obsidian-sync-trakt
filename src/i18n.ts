@@ -65,13 +65,47 @@ const STRINGS = {
   "tmdb.heading": { en: "TMDB", "zh-CN": "TMDB" },
   "tmdb.apiKey.name": { en: "API key", "zh-CN": "API 密钥" },
   "tmdb.apiKey.desc": {
-    en: "Optional. Get a free key at themoviedb.org/settings/api. If blank, poster images are skipped.",
+    en: "Recommended. Powers poster images AND complete metadata translation — including genres — in your chosen language. Without a key, posters are skipped and translations fall back to Trakt (covers title / overview / tagline; genres stay English). Get a free key at themoviedb.org/settings/api.",
     "zh-CN":
-      "可选。在 themoviedb.org/settings/api 免费获取。留空则跳过海报图片。",
+      "推荐填写。海报图片和**完整的元数据翻译（含 genres）**都依赖它。不填的话海报会跳过，翻译会回退到 Trakt（覆盖 title / overview / tagline，但 genres 留英文）。在 themoviedb.org/settings/api 免费获取。",
   },
   "tmdb.apiKey.placeholder": {
     en: "Paste your API key",
     "zh-CN": "粘贴你的 API 密钥",
+  },
+  // [0.3.2] TMDB API key test button
+  "tmdb.apiKey.test.name": {
+    en: "Test API key",
+    "zh-CN": "测试 API 密钥",
+  },
+  "tmdb.apiKey.test.desc": {
+    en: "Verify the key above is valid by making a single request to TMDB. Run this after pasting your key to catch typos before your next sync.",
+    "zh-CN":
+      "向 TMDB 发一次请求验证上方的 key 是否有效。粘贴 key 后建议测一下，避免到了下一次同步才发现是错的。",
+  },
+  "tmdb.apiKey.test.button": { en: "Test", "zh-CN": "测试" },
+  "tmdb.apiKey.test.testing": { en: "Testing…", "zh-CN": "测试中…" },
+  "tmdb.apiKey.test.ok": {
+    en: "✓ Connected — your TMDB key works.",
+    "zh-CN": "✓ 连接成功 —— TMDB key 有效。",
+  },
+  "tmdb.apiKey.test.empty": {
+    en: "Enter a TMDB key above first.",
+    "zh-CN": "请先在上方填入 TMDB key。",
+  },
+  "tmdb.apiKey.test.unauthorized": {
+    en: "✗ Invalid key. TMDB rejected the request — check for typos.",
+    "zh-CN": "✗ 无效 key。TMDB 拒绝了请求 —— 检查一下有没有拼错。",
+  },
+  "tmdb.apiKey.test.network": {
+    en: "✗ Network error. Couldn't reach TMDB — check your connection.",
+    "zh-CN": "✗ 网络错误。连不上 TMDB —— 检查一下网络。",
+  },
+  // [0.3.2] Inline warning shown under Metadata language when set without TMDB key
+  "loc.noTmdbWarning": {
+    en: "⚠ No TMDB key set. Translation will fall back to Trakt — title / overview / tagline only; genres stay English and posters are skipped. Add a TMDB key above for full localization.",
+    "zh-CN":
+      "⚠ 未设置 TMDB key。翻译会回退到 Trakt —— 仅覆盖 title / overview / tagline；genres 留英文、海报跳过。要获得完整本地化，请在上方填入 TMDB key。",
   },
   "tmdb.posterSize.name": { en: "Poster size", "zh-CN": "海报尺寸" },
   "tmdb.posterSize.desc": {

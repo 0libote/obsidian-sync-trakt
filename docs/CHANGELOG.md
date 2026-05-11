@@ -7,6 +7,67 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 0.3.2 — 2026-05-11
+
+**UX: make the TMDB-vs-Trakt API contract obvious and testable.**
+
+User report (paraphrased): "If I enable metadata localization but skip the
+TMDB key, I get a half-translated library and don't know why. The TMDB key
+description only mentions posters, so I thought it was optional for
+translation too — but genres stayed English and there were no posters."
+
+Root cause: pre-0.3.2 wording on the TMDB API key setting was
+`"Optional. If blank, poster images are skipped"` — accurate but
+incomplete. It hid the fact that genres translation and full-quality
+title/overview/tagline translation also depend on TMDB. The plugin DID
+fall back to Trakt's `/translations` endpoint for title/overview/tagline,
+but the description didn't say so, and there was no way to verify a key
+worked before committing to a 30-second sync.
+
+### Added
+
+- **TMDB API key Test button.** New `verifyTmdbApiKey()` function hits
+  TMDB's `/configuration` endpoint and returns a discriminated result
+  (`ok` / `empty` / `unauthorized` / `network`). Surfaces TMDB's own
+  `status_message` to the user via the result detail when authentication
+  fails. Empty-input short-circuits without a network call.
+- **Inline warning in Localization section.** When `metadataLanguage` is
+  set but `tmdbApiKey` is empty, a warning banner appears under the
+  language dropdown spelling out exactly what's missing (genres stay
+  English, no posters) and where to fix it. Non-blocking — informational
+  only.
+- **README "🔑 API keys: what each one unlocks" section in all 9
+  languages.** New comparison table placed between Quick Start and
+  Install:
+
+  | Feature | Trakt API _(required)_ | TMDB API _(recommended)_ |
+  |---|:---:|:---:|
+  | Sync Trakt library | ✅ | — |
+  | Per-episode timestamps | ✅ | — |
+  | Title / overview / tagline localization | ✅ basic | ✅ higher quality |
+  | Genres localization | ❌ | ✅ |
+  | Poster images | ❌ | ✅ |
+
+  Now users see what they're trading away if they skip TMDB, before
+  they paste any keys.
+- **14 new smoke tests** (cases 37-40 in `tests/i18n.smoke.ts`) for
+  `verifyTmdbApiKey`: empty / whitespace input, 200 OK, 401, 403, 5xx,
+  thrown exceptions. Total test count: **235** (was 221).
+
+### Changed
+
+- **TMDB API key description rewritten** (en + zh-CN) to lead with the
+  full impact: "Recommended. Powers poster images AND complete metadata
+  translation — including genres — in your chosen language. Without a
+  key, posters are skipped and translations fall back to Trakt …"
+
+### Migration
+
+No data migration. The new wording, Test button, and warning banner are
+purely additive UI/docs changes. Existing behavior unchanged — Trakt
+translation fallback still works exactly as before for users who choose
+not to set up TMDB.
+
 ## 0.3.1 — 2026-05-10
 
 **Fix: filename collision when distinct items localize to the same

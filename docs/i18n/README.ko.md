@@ -81,6 +81,22 @@ trakt_metadata_language: ko-KR
 2. 설정 → **Obsidian Sync Trakt** → Trakt + TMDB API 키 입력([설정 가이드](../SETUP.md))
 3. 명령 팔레트 → **Traktr: Sync**
 
+## 🔑 API 키가 각각 잠금 해제하는 기능
+
+플러그인은 두 개의 API를 사용합니다. **Trakt는 필수** — 없으면 아무것도 동기화할 수 없습니다. **TMDB는 선택사항**이지만, 대부분의 사용자가 이 플러그인을 설치하는 진짜 이유(다국어 메타데이터·포스터)는 이쪽에서 잠금 해제됩니다:
+
+| 기능 | Trakt API<br/>_(필수)_ | TMDB API<br/>_(권장)_ |
+|---|:---:|:---:|
+| Trakt 라이브러리 동기화(watchlist, watched, favorites, ratings) | ✅ | — |
+| 에피소드별 시청 타임스탬프 | ✅ | — |
+| title / overview / tagline 을 자국어로 번역 | ✅ 기본 | ✅ 더 높은 품질 |
+| **genres를 자국어로 번역** | ❌ | ✅ |
+| **노트에 포스터 이미지 임베드** | ❌ | ✅ |
+
+영어 콘텐츠로 만족하고 포스터가 필요 없다면 TMDB는 비워둬도 됩니다 — Trakt만으로 충분합니다. 비영어 완전 현지화(genres와 포스터 포함)를 원한다면 **TMDB 키를 입력**하세요([무료 가입](https://www.themoviedb.org/settings/api)). 키를 붙여 넣은 후, 입력란 옆의 **Test** 버튼으로 작동 여부를 확인한 다음 첫 동기화를 진행하세요.
+
+→ [두 키의 전체 설정 가이드](../SETUP.md)
+
 ## 📦 설치
 
 <details>

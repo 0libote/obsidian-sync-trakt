@@ -6,7 +6,7 @@ import {
   type HistoryState,
   type TmdbCache,
 } from "./types";
-import { clearTmdbCache, tmdbCacheStats } from "./tmdb-api";
+import { clearTmdbCache, tmdbCacheStats, verifyTmdbApiKey } from "./tmdb-api";
 import { clearHistoryState, historyStateStats } from "./history-state";
 
 export const POSTER_SIZES = [
@@ -559,6 +559,48 @@ export class TraktrSettingTab extends PluginSettingTab {
           }),
       );
 
+    // [0.3.2] Test button — verify the key works before relying on it
+    // in a real sync. Result line lives directly under the button and is
+    // re-rendered on each click. Empty input short-circuits without a
+    // network call (verifyTmdbApiKey handles that case explicitly).
+    const testSetting = new Setting(containerEl)
+      .setName(t("tmdb.apiKey.test.name"))
+      .setDesc(t("tmdb.apiKey.test.desc"));
+    const testResultEl = testSetting.descEl.createDiv({
+      cls: "trakt-test-result",
+    });
+    testSetting.addButton((btn) =>
+      btn.setButtonText(t("tmdb.apiKey.test.button")).onClick(async () => {
+        btn.setButtonText(t("tmdb.apiKey.test.testing")).setDisabled(true);
+        testResultEl.empty();
+        // Reset color modifier classes from any previous click
+        testResultEl.classList.remove("is-ok", "is-error", "is-muted");
+        try {
+          const result = await verifyTmdbApiKey(this.plugin.settings.tmdbApiKey);
+          if (result.ok) {
+            testResultEl.classList.add("is-ok");
+            testResultEl.setText(t("tmdb.apiKey.test.ok"));
+          } else {
+            testResultEl.classList.add(
+              result.reason === "empty" ? "is-muted" : "is-error",
+            );
+            const key =
+              result.reason === "empty"
+                ? "tmdb.apiKey.test.empty"
+                : result.reason === "unauthorized"
+                  ? "tmdb.apiKey.test.unauthorized"
+                  : "tmdb.apiKey.test.network";
+            const base = t(key);
+            testResultEl.setText(
+              result.detail ? `${base} (${result.detail})` : base,
+            );
+          }
+        } finally {
+          btn.setButtonText(t("tmdb.apiKey.test.button")).setDisabled(false);
+        }
+      }),
+    );
+
     new Setting(containerEl)
       .setName(t("tmdb.posterSize.name"))
       .setDesc(t("tmdb.posterSize.desc"))
@@ -655,6 +697,19 @@ export class TraktrSettingTab extends PluginSettingTab {
           this.display();
         });
       });
+
+    // [0.3.2] Inline warning when metadataLanguage is set but TMDB key is
+    // missing. Surfaces what the user is actually getting from the Trakt
+    // fallback (partial translation) vs what TMDB would unlock (full
+    // translation + posters). Non-blocking — just informational.
+    const langActive =
+      this.plugin.settings.metadataLanguage !== "" &&
+      this.plugin.settings.metadataLanguage !== undefined;
+    const tmdbMissing = !this.plugin.settings.tmdbApiKey.trim();
+    if (langActive && tmdbMissing) {
+      const warningEl = containerEl.createDiv({ cls: "trakt-tmdb-warning" });
+      warningEl.setText(t("loc.noTmdbWarning"));
+    }
 
     if (dropdownValue === "custom") {
       new Setting(containerEl)

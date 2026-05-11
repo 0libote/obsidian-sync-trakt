@@ -81,6 +81,22 @@ trakt_metadata_language: ja-JP
 2. 設定 → **Obsidian Sync Trakt** → Trakt + TMDB API キーを入力（[セットアップガイド](SETUP.ja.md)）
 3. コマンドパレット → **Traktr: Sync**
 
+## 🔑 API キーで何ができるか
+
+プラグインは 2 つの API を使います。**Trakt は必須** — これがないと何も同期できません。**TMDB は任意** ですが、ほとんどのユーザーがこのプラグインを使う本来の目的（多言語メタデータ・ポスター）はこちらで解放されます。詳細：
+
+| 機能 | Trakt API<br/>_（必須）_ | TMDB API<br/>_（推奨）_ |
+|---|:---:|:---:|
+| Trakt ライブラリの同期（watchlist、watched、favorites、ratings） | ✅ | — |
+| エピソード単位の視聴タイムスタンプ | ✅ | — |
+| title / overview / tagline をあなたの言語に翻訳 | ✅ 基本 | ✅ より高品質 |
+| **genres をあなたの言語に翻訳** | ❌ | ✅ |
+| **ノートに埋め込まれるポスター画像** | ❌ | ✅ |
+
+英語のままで構わず、ポスターも不要なら TMDB は空欄で構いません — Trakt だけで十分です。非英語の完全なローカライズ（genres とポスターを含む）が欲しい場合は **TMDB キーを入力してください**（[無料登録](https://www.themoviedb.org/settings/api)）。キーを貼り付けたら、入力欄の横にある **Test** ボタンで動作確認してから初回同期を実行してください。
+
+→ [両方のキーの完全な設定手順](SETUP.ja.md)
+
 ## 📦 インストール
 
 <details>
