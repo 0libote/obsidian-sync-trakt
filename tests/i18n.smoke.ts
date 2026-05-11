@@ -68,6 +68,10 @@ import {
   getEffectiveMetadataLanguage,
   getEffectiveTemplateLanguage,
   type TraktrSettings,
+  LOCAL_ELIGIBLE_KEYS,
+  DEFAULT_LOCAL_KEYS,
+  LOCAL_STORAGE_PREFIX,
+  LOCAL_KEYS_STORAGE_KEY,
 } from "../src/settings";
 import { getTranslator, t } from "../src/i18n";
 import type { NormalizedItem } from "../src/types";
@@ -1908,6 +1912,97 @@ void (async () => {
     assertTrue(
       enMsg !== zhMsg,
       "en + zh-CN actually differ (not accidentally the same string)",
+    );
+  }
+
+  // ── Test 42-44: spec 0003 device-local settings constants ─────────────
+  // Most of the SettingsStore logic is bound to Obsidian's app.loadLocalStorage
+  // and can't be smoke-tested without a heavier stub. What we CAN lock down:
+  // the constants that drive the partition, and the i18n keys the UI depends on.
+
+  console.log("\n[42] LOCAL_ELIGIBLE_KEYS contents are stable + match settings type");
+  {
+    // Lock the exact list — any change here is a semantic decision that
+    // must be paired with a CHANGELOG note + migration consideration.
+    const expected = new Set([
+      "syncOnStartup",
+      "autoSyncEnabled",
+      "autoSyncIntervalMinutes",
+      "uiLanguage",
+    ]);
+    const actual = new Set<string>(LOCAL_ELIGIBLE_KEYS);
+    assertEq(actual.size, expected.size, "list has 4 entries");
+    for (const k of expected) {
+      assertTrue(actual.has(k), `LOCAL_ELIGIBLE_KEYS includes '${k}'`);
+    }
+    // Every key must actually be a settable field on TraktrSettings
+    const defaults = DEFAULT_SETTINGS as unknown as Record<string, unknown>;
+    for (const k of LOCAL_ELIGIBLE_KEYS) {
+      assertTrue(
+        k in defaults,
+        `'${k}' is a real key in DEFAULT_SETTINGS (not a typo)`,
+      );
+    }
+  }
+
+  console.log("\n[43] DEFAULT_LOCAL_KEYS is a strict subset; uiLanguage NOT default-local");
+  {
+    const eligible = new Set<string>(LOCAL_ELIGIBLE_KEYS);
+    for (const k of DEFAULT_LOCAL_KEYS) {
+      assertTrue(
+        eligible.has(k),
+        `DEFAULT_LOCAL_KEYS member '${k}' must also be LOCAL_ELIGIBLE`,
+      );
+    }
+    // Specific to spec 0003: uiLanguage is opt-in, NOT default-local.
+    // Most users want consistent UI across devices, so syncing is the
+    // right default. The cloud icon is still available to toggle.
+    const defaultLocal = new Set<string>(DEFAULT_LOCAL_KEYS);
+    assertTrue(
+      !defaultLocal.has("uiLanguage"),
+      "uiLanguage defaults to SYNCED (not default-local) — spec 0003 §Initial scope",
+    );
+    assertTrue(
+      defaultLocal.has("syncOnStartup"),
+      "syncOnStartup defaults to LOCAL (per-device choice)",
+    );
+    assertTrue(
+      defaultLocal.has("autoSyncEnabled"),
+      "autoSyncEnabled defaults to LOCAL",
+    );
+    assertTrue(
+      defaultLocal.has("autoSyncIntervalMinutes"),
+      "autoSyncIntervalMinutes defaults to LOCAL",
+    );
+  }
+
+  console.log("\n[44] localStorage key namespacing is consistent");
+  {
+    // The actual storage keys: prefix + key name; the _localKeys list
+    // is itself stored with the prefix.
+    assertTrue(
+      LOCAL_KEYS_STORAGE_KEY.startsWith(LOCAL_STORAGE_PREFIX),
+      "_localKeys storage key uses the plugin's namespace prefix",
+    );
+    assertTrue(
+      LOCAL_STORAGE_PREFIX.endsWith(":"),
+      "prefix ends with ':' for visual separation in localStorage inspector",
+    );
+    // Sanity-check the cloud-icon tooltips resolve in both languages
+    const enSynced = t("settings.cloud.synced.tooltip", "en");
+    const enLocal = t("settings.cloud.local.tooltip", "en");
+    const zhSynced = t("settings.cloud.synced.tooltip", "zh-CN");
+    const zhLocal = t("settings.cloud.local.tooltip", "zh-CN");
+    assertTrue(
+      !enSynced.startsWith("settings.") &&
+        !enLocal.startsWith("settings.") &&
+        !zhSynced.startsWith("settings.") &&
+        !zhLocal.startsWith("settings."),
+      "all 4 cloud-icon tooltip keys resolve in both languages",
+    );
+    assertTrue(
+      enSynced !== enLocal && zhSynced !== zhLocal,
+      "synced and local tooltips actually differ in each language",
     );
   }
 

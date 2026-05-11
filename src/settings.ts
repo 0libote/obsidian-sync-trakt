@@ -21,6 +21,54 @@ export const POSTER_SIZES = [
 
 export type PosterSize = (typeof POSTER_SIZES)[number];
 
+/**
+ * [0.5.0] Settings that can be marked as "device-local" per spec 0003.
+ *
+ * These are the settings whose semantics make per-device divergence
+ * legitimate — auto-sync timing varies by device, UI language can vary
+ * by user-of-device, etc. Everything else (auth tokens, sync content
+ * toggles, metadata language, templates, etc.) always lives in data.json
+ * and follows vault sync.
+ *
+ * Each device independently records WHICH of these keys are local on it
+ * (the `_localKeys` array in localStorage). This means Mac can have
+ * `uiLanguage` local while iPhone keeps it synced — the metadata about
+ * who's local is itself device-local, not synced.
+ */
+export const LOCAL_ELIGIBLE_KEYS = [
+  "syncOnStartup",
+  "autoSyncEnabled",
+  "autoSyncIntervalMinutes",
+  "uiLanguage",
+] as const;
+export type LocalEligibleKey = (typeof LOCAL_ELIGIBLE_KEYS)[number];
+
+/**
+ * [0.5.0] On first 0.5.0 launch (no `_localKeys` in localStorage yet),
+ * these keys default to local on that device. The auto-sync trio fits
+ * here because cross-device sync of these settings causes redundant
+ * syncs / Trakt API traffic for zero user benefit (each device should
+ * pick its own cadence). `uiLanguage` defaults to SYNCED — most users
+ * want the same UI language everywhere — but it remains togglable via
+ * the cloud icon.
+ */
+export const DEFAULT_LOCAL_KEYS: ReadonlyArray<LocalEligibleKey> = [
+  "syncOnStartup",
+  "autoSyncEnabled",
+  "autoSyncIntervalMinutes",
+];
+
+/**
+ * Namespace prefix for all localStorage keys this plugin owns. Obsidian's
+ * `app.loadLocalStorage` / `saveLocalStorage` are vault-scoped, but the
+ * prefix lets us coexist with other plugins (and our own future keys)
+ * within the same vault's local storage.
+ */
+export const LOCAL_STORAGE_PREFIX = "sync-trakt:";
+
+/** Key under which the list of currently-local setting keys is stored. */
+export const LOCAL_KEYS_STORAGE_KEY = `${LOCAL_STORAGE_PREFIX}_localKeys`;
+
 /** Preset language options shown in the Localization (metadata) dropdown.
  * The Note template language dropdown reuses this same list for symmetry,
  * even though the plugin only ships translated default templates for English
@@ -461,6 +509,30 @@ export class TraktrSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
+  /**
+   * [0.5.0] Attach the per-setting cloud icon to a Setting row. The icon
+   * shows whether this key is currently synced (cloud) or device-local
+   * (cloud-off). Clicking toggles the state and re-renders the tab so
+   * any dependent UI updates accordingly. See spec 0003.
+   */
+  private addLocalToggle(setting: Setting, key: LocalEligibleKey): Setting {
+    const t = getTranslator(this.plugin.settings.uiLanguage);
+    return setting.addExtraButton((btn) => {
+      const isLocal = this.plugin.localKeys.has(key);
+      btn
+        .setIcon(isLocal ? "cloud-off" : "cloud")
+        .setTooltip(
+          isLocal
+            ? t("settings.cloud.local.tooltip")
+            : t("settings.cloud.synced.tooltip"),
+        )
+        .onClick(async () => {
+          await this.plugin.setKeyIsLocal(key, !isLocal);
+          this.display();
+        });
+    });
+  }
+
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
@@ -727,19 +799,22 @@ export class TraktrSettingTab extends PluginSettingTab {
     }
 
     // Plugin UI language
-    new Setting(containerEl)
-      .setName(t("loc.uiLanguage.name"))
-      .setDesc(t("loc.uiLanguage.desc"))
-      .addDropdown((dd) => {
-        dd.addOption("en", "English");
-        dd.addOption("zh-CN", "简体中文");
-        dd.setValue(this.plugin.settings.uiLanguage);
-        dd.onChange(async (value) => {
-          this.plugin.settings.uiLanguage = value as UiLanguage;
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      });
+    this.addLocalToggle(
+      new Setting(containerEl)
+        .setName(t("loc.uiLanguage.name"))
+        .setDesc(t("loc.uiLanguage.desc"))
+        .addDropdown((dd) => {
+          dd.addOption("en", "English");
+          dd.addOption("zh-CN", "简体中文");
+          dd.setValue(this.plugin.settings.uiLanguage);
+          dd.onChange(async (value) => {
+            this.plugin.settings.uiLanguage = value as UiLanguage;
+            await this.plugin.saveSettings();
+            this.display();
+          });
+        }),
+      "uiLanguage",
+    );
 
     // Note template language — same dropdown shape as Metadata language
     // (preset codes + Custom). Auto-rewrites unmodified default templates
@@ -1132,47 +1207,56 @@ export class TraktrSettingTab extends PluginSettingTab {
           }),
       );
 
-    new Setting(containerEl)
-      .setName(t("syncBehavior.startup.name"))
-      .setDesc(t("syncBehavior.startup.desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.syncOnStartup)
-          .onChange(async (value) => {
-            this.plugin.settings.syncOnStartup = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName(t("syncBehavior.autoSync.name"))
-      .setDesc(t("syncBehavior.autoSync.desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.autoSyncEnabled)
-          .onChange(async (value) => {
-            this.plugin.settings.autoSyncEnabled = value;
-            await this.plugin.saveSettings();
-            this.plugin.configureAutoSync();
-            this.display();
-          }),
-      );
-
-    if (this.plugin.settings.autoSyncEnabled) {
+    this.addLocalToggle(
       new Setting(containerEl)
-        .setName(t("syncBehavior.interval.name"))
-        .setDesc(t("syncBehavior.interval.desc"))
-        .addSlider((slider) =>
-          slider
-            .setLimits(5, 360, 5)
-            .setValue(this.plugin.settings.autoSyncIntervalMinutes)
-            .setDynamicTooltip()
+        .setName(t("syncBehavior.startup.name"))
+        .setDesc(t("syncBehavior.startup.desc"))
+        .addToggle((toggle) =>
+          toggle
+            .setValue(this.plugin.settings.syncOnStartup)
             .onChange(async (value) => {
-              this.plugin.settings.autoSyncIntervalMinutes = value;
+              this.plugin.settings.syncOnStartup = value;
+              await this.plugin.saveSettings();
+            }),
+        ),
+      "syncOnStartup",
+    );
+
+    this.addLocalToggle(
+      new Setting(containerEl)
+        .setName(t("syncBehavior.autoSync.name"))
+        .setDesc(t("syncBehavior.autoSync.desc"))
+        .addToggle((toggle) =>
+          toggle
+            .setValue(this.plugin.settings.autoSyncEnabled)
+            .onChange(async (value) => {
+              this.plugin.settings.autoSyncEnabled = value;
               await this.plugin.saveSettings();
               this.plugin.configureAutoSync();
+              this.display();
             }),
-        );
+        ),
+      "autoSyncEnabled",
+    );
+
+    if (this.plugin.settings.autoSyncEnabled) {
+      this.addLocalToggle(
+        new Setting(containerEl)
+          .setName(t("syncBehavior.interval.name"))
+          .setDesc(t("syncBehavior.interval.desc"))
+          .addSlider((slider) =>
+            slider
+              .setLimits(5, 360, 5)
+              .setValue(this.plugin.settings.autoSyncIntervalMinutes)
+              .setDynamicTooltip()
+              .onChange(async (value) => {
+                this.plugin.settings.autoSyncIntervalMinutes = value;
+                await this.plugin.saveSettings();
+                this.plugin.configureAutoSync();
+              }),
+          ),
+        "autoSyncIntervalMinutes",
+      );
     }
 
     new Setting(containerEl)

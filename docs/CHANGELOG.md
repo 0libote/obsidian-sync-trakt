@@ -7,6 +7,81 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 0.5.0 — 2026-05-11
+
+**Device-local settings with a per-setting sync toggle.** Some settings
+(auto-sync cadence, UI language) shouldn't always sync across devices.
+0.5.0 splits the plugin's persistent state into two layers — synced
+(`data.json`, follows Obsidian Sync) and device-local (`localStorage`,
+never syncs) — with a cloud icon next to each eligible setting that
+lets you toggle which layer it lives in.
+
+### Added
+
+- **Two-tier settings storage** (`src/main.ts`):
+  - **Synced layer**: `data.json`, picked up by Obsidian Sync as before
+  - **Device-local layer**: Obsidian's vault-scoped `localStorage` via
+    `app.loadLocalStorage` / `app.saveLocalStorage`. Each device
+    independently records which keys are local on it (the `_localKeys`
+    list is itself device-local), so Mac and iPhone can have
+    independent toggle states.
+- **Per-setting cloud icon** in the settings tab — appears next to the
+  4 settings eligible for the toggle:
+
+  | Setting | Default state |
+  |---|---|
+  | Sync on startup | **local** (per-device launch behavior) |
+  | Auto-sync enabled | **local** (per-device cadence choice) |
+  | Auto-sync interval | **local** (per-device cadence choice) |
+  | Plugin UI language | **synced** (toggleable) |
+
+  Click the icon to flip the state. Tooltip explains what happens:
+
+  > "This setting syncs across devices via Obsidian Sync. Click to make it device-local."
+
+  → "This setting is local to this device only. Click to sync it across devices."
+
+  Uses Lucide's `cloud` and `cloud-off` icons (already shipped with
+  Obsidian).
+- **`docs/specs/0003-device-local-settings.md`** — design + 8-row
+  edge-case matrix + alternatives considered. Status updated to
+  `implemented`.
+- **20 new smoke tests** (cases 42-44): lock down `LOCAL_ELIGIBLE_KEYS`
+  membership, `DEFAULT_LOCAL_KEYS` subset relationship, the cloud-icon
+  i18n key resolution in both languages. Total tests: **260** (was 240).
+
+### Migration
+
+**Automatic on first 0.5.0 launch.** When the plugin sees no
+`_localKeys` in localStorage, it:
+
+1. Seeds the list with `DEFAULT_LOCAL_KEYS` (the auto-sync trio)
+2. Reads the current value of each from data.json
+3. Writes those values to localStorage
+4. On subsequent `saveSettings()`, those keys are excluded from
+   `data.json` and only written to localStorage
+
+For each new device (or vault) you install 0.5.0 on, the same one-time
+seeding runs independently — each device gets its own initial state.
+
+If you previously had Mac auto-sync on and iPhone auto-sync also on,
+both will continue to be on after upgrade. The state is preserved; it
+just moves into a per-device storage layer where it can now diverge if
+you change it on one device.
+
+### Changed
+
+- **`saveSettings()` now splits storage** per the spec — local keys to
+  `localStorage`, synced keys to `data.json`. No call site changes
+  needed; reads still use `this.settings.foo` directly because the
+  load path overlays localStorage values on top of data.json at startup
+  and on cross-device sync events (`visibilitychange`).
+- **The `Obsidian Sync` story under "Cross-device sync" in the README**
+  remains accurate: your library, auth, and content settings still
+  follow Obsidian Sync. The cloud icon affects exactly 4 settings.
+
+See [spec 0003](specs/0003-device-local-settings.md) for design.
+
 ## 0.4.0 — 2026-05-11
 
 **Submission preparation for the Obsidian Community Plugins directory.**

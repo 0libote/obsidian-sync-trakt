@@ -1,7 +1,12 @@
 import { Notice, Plugin, normalizePath } from "obsidian";
 import {
   DEFAULT_SETTINGS,
+  DEFAULT_LOCAL_KEYS,
+  LOCAL_ELIGIBLE_KEYS,
+  LOCAL_KEYS_STORAGE_KEY,
+  LOCAL_STORAGE_PREFIX,
   TraktrSettingTab,
+  type LocalEligibleKey,
   type TraktrSettings,
 } from "./settings";
 import { AuthModal } from "./trakt-auth";
@@ -20,6 +25,12 @@ const LEGACY_PLUGIN_ID = "obsidian-sync-trakt";
 
 export default class TraktrPlugin extends Plugin {
   settings: TraktrSettings = { ...DEFAULT_SETTINGS };
+  /**
+   * [0.5.0] The set of setting keys that live in localStorage on THIS
+   * device (overriding their data.json values). The set is loaded from
+   * localStorage at onload and mutated via setKeyIsLocal. See spec 0003.
+   */
+  localKeys: Set<LocalEligibleKey> = new Set();
   private syncEngine!: SyncEngine;
   private autoSyncIntervalId: number | null = null;
   private statusBarEl: HTMLElement | null = null;
@@ -191,6 +202,97 @@ export default class TraktrPlugin extends Plugin {
     // (set via the constructor) stays valid. Replacing the object would
     // leave SyncEngine pointing at stale data.
     Object.assign(this.settings, DEFAULT_SETTINGS, loaded ?? {});
+
+    // [0.5.0] Apply device-local overrides on top of data.json values.
+    // See spec 0003 for design rationale.
+    this.loadLocalKeysAndApplyOverlay();
+  }
+
+  /**
+   * [0.5.0] Load the `_localKeys` list from localStorage. On the very
+   * first 0.5.0 launch (list is missing), seed with the default-local
+   * set per spec 0003. Then overlay all local values onto `this.settings`,
+   * overriding whatever came from data.json.
+   *
+   * The metadata about "which keys are local on this device" is itself
+   * device-local — stored in localStorage, NOT data.json. So Mac and
+   * iPhone can have different sets of local keys, independently.
+   */
+  private loadLocalKeysAndApplyOverlay(): void {
+    const eligible = new Set<string>(LOCAL_ELIGIBLE_KEYS);
+    const raw = this.app.loadLocalStorage(LOCAL_KEYS_STORAGE_KEY) as
+      | string[]
+      | null;
+
+    let localKeys: LocalEligibleKey[];
+    if (raw === null || raw === undefined) {
+      // First 0.5.0 launch on this device — seed defaults and migrate the
+      // current data.json value for each into localStorage so the user's
+      // current state is preserved when we start excluding these from
+      // data.json on subsequent saves.
+      localKeys = [...DEFAULT_LOCAL_KEYS];
+      this.app.saveLocalStorage(LOCAL_KEYS_STORAGE_KEY, localKeys);
+      for (const key of localKeys) {
+        this.app.saveLocalStorage(
+          `${LOCAL_STORAGE_PREFIX}${key}`,
+          this.settings[key],
+        );
+      }
+      console.debug(
+        "[Traktr] First 0.5.0 launch — seeded device-local keys:",
+        localKeys,
+      );
+    } else {
+      // Filter to currently-eligible keys (defensive — in case
+      // LOCAL_ELIGIBLE_KEYS shrunk in a future release).
+      localKeys = raw.filter((k): k is LocalEligibleKey => eligible.has(k));
+    }
+    this.localKeys = new Set(localKeys);
+    this.applyLocalOverlay();
+  }
+
+  /**
+   * Apply localStorage values for each local key onto `this.settings`,
+   * overriding the value loaded from data.json. Called on initial load
+   * and on refreshSettingsFromDisk so local overrides keep winning
+   * after Obsidian Sync deposits a new data.json from another device.
+   */
+  private applyLocalOverlay(): void {
+    for (const key of this.localKeys) {
+      const localValue: unknown = this.app.loadLocalStorage(
+        `${LOCAL_STORAGE_PREFIX}${key}`,
+      );
+      if (localValue !== null && localValue !== undefined) {
+        (this.settings as unknown as Record<string, unknown>)[key] = localValue;
+      }
+    }
+  }
+
+  /**
+   * [0.5.0] Toggle whether a setting key is device-local. Moves the
+   * current value to / from localStorage; persists the updated
+   * `_localKeys` list; triggers a full saveSettings so data.json
+   * reflects the new partition.
+   */
+  async setKeyIsLocal(
+    key: LocalEligibleKey,
+    isLocal: boolean,
+  ): Promise<void> {
+    if (isLocal) {
+      this.localKeys.add(key);
+      // Persist the current in-memory value to localStorage so it
+      // survives the data.json strip happening in saveSettings.
+      this.app.saveLocalStorage(
+        `${LOCAL_STORAGE_PREFIX}${key}`,
+        this.settings[key],
+      );
+    } else {
+      this.localKeys.delete(key);
+      // Clear the localStorage entry — value lives in data.json from now.
+      this.app.saveLocalStorage(`${LOCAL_STORAGE_PREFIX}${key}`, null);
+    }
+    this.app.saveLocalStorage(LOCAL_KEYS_STORAGE_KEY, [...this.localKeys]);
+    await this.saveSettings();
   }
 
   /**
@@ -242,7 +344,21 @@ export default class TraktrPlugin extends Plugin {
   }
 
   async saveSettings() {
-    await this.saveData(this.settings);
+    // [0.5.0] Split storage per spec 0003: local-marked keys go to
+    // localStorage, the rest to data.json. Doing this split on every
+    // save keeps the two layers consistent and means no special-case
+    // write path — just two destinations.
+    for (const key of this.localKeys) {
+      this.app.saveLocalStorage(
+        `${LOCAL_STORAGE_PREFIX}${key}`,
+        this.settings[key],
+      );
+    }
+    const synced = { ...this.settings } as Partial<TraktrSettings>;
+    for (const key of this.localKeys) {
+      delete synced[key];
+    }
+    await this.saveData(synced);
   }
 
   /**
@@ -253,6 +369,11 @@ export default class TraktrPlugin extends Plugin {
    * of the plugin.
    *
    * In-place mutation is essential — see loadSettings() comment.
+   *
+   * [0.5.0] After applying the fresh data.json, we re-apply the local
+   * overlay so device-local keys keep winning. Without this step, a
+   * data.json sync from another device would clobber the local values
+   * for keys that THIS device has marked local.
    */
   private async refreshSettingsFromDisk(): Promise<void> {
     try {
@@ -263,6 +384,8 @@ export default class TraktrPlugin extends Plugin {
       const stale = this.settings as unknown as Record<string, unknown>;
       for (const k of Object.keys(stale)) delete stale[k];
       Object.assign(this.settings, DEFAULT_SETTINGS, fresh);
+      // Re-overlay localStorage values on top of the fresh data.json.
+      this.applyLocalOverlay();
     } catch (e) {
       console.warn("[Traktr] Failed to refresh settings from disk:", e);
     }

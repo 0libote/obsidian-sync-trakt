@@ -1,7 +1,7 @@
 # 0003 — Device-local settings (per-setting sync toggle)
 
-- **Status**: draft (future work)
-- **Targeted**: 0.4.0
+- **Status**: implemented
+- **Released in**: 0.5.0
 - **Date**: 2026-05-10
 - **Authors**: @o1xhack, Claude
 - **Builds on**: [0001-incremental-sync](0001-incremental-sync.md), [0002-diff-based-write](0002-diff-based-write.md)

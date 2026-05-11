@@ -468,6 +468,16 @@ const STRINGS = {
     en: "Traktr: settings migrated from the legacy plugin folder. Your Trakt token, TMDB cache, and history state are preserved.",
     "zh-CN": "Traktr：已从旧插件目录迁移设置。Trakt token、TMDB 缓存和历史状态都已保留。",
   },
+
+  // [0.5.0] Cloud icon tooltips for the per-setting sync toggle. See spec 0003.
+  "settings.cloud.synced.tooltip": {
+    en: "This setting syncs across devices via Obsidian Sync. Click to make it device-local.",
+    "zh-CN": "此设置通过 Obsidian Sync 跨设备同步。点击改为仅本设备生效。",
+  },
+  "settings.cloud.local.tooltip": {
+    en: "This setting is local to this device only. Click to sync it across devices.",
+    "zh-CN": "此设置仅在本设备生效。点击改为跨设备同步。",
+  },
   "notice.syncComplete": {
     en: "Sync complete: {added} added, {updated} updated, {unchanged} unchanged, {removed} removed",
     "zh-CN": "同步完成：新增 {added}，更新 {updated}，未变 {unchanged}，移除 {removed}",
