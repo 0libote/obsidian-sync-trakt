@@ -7,6 +7,66 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 0.4.0 — 2026-05-11
+
+**Submission preparation for the Obsidian Community Plugins directory.**
+
+To list in the official directory, the plugin id must comply with the
+submission bot's "no `obsidian` in id" rule. Since the plugin id is also
+the folder name under `.obsidian/plugins/<id>/`, changing it triggers a
+data-folder migration for existing BRAT-installed users. This release
+handles all of it transparently and tightens the `minAppVersion`
+declaration to match the APIs we actually use.
+
+### Changed
+
+- **Plugin id**: `obsidian-sync-trakt` → `sync-trakt`. Required to pass
+  Obsidian's submission bot (`id can't contain obsidian`). The GitHub
+  repo name stays at `o1xhack/obsidian-sync-trakt` — Obsidian only
+  identifies plugins by `id`, not by repo path, so external links and
+  BRAT subscriptions keep working unchanged.
+- **`minAppVersion`**: `1.4.0` → `1.6.6`. Reflects the highest `@since`
+  of any API we actually use (`fileManager.trashFile`, per Obsidian's
+  `obsidian.d.ts`). Previous `1.4.0` was technically incorrect: users
+  on 1.4.0-1.6.5 who enabled `Delete removed items` would have crashed
+  on the trash step. The default for that setting is off, so no users
+  hit it in practice — but the declaration is now honest.
+- **Display name** stays `Obsidian Sync Trakt`. The bot doesn't check
+  display name. If a reviewer asks during human review, we change it in
+  a small follow-up.
+
+### Added
+
+- **Transparent legacy-folder migration on first 0.4.0 launch.** When
+  `loadSettings()` finds an empty new-folder data.json but a populated
+  `data.json` at `.obsidian/plugins/obsidian-sync-trakt/`, the plugin
+  reads, parses, and saves to the new folder. The user sees a single
+  one-time Notice (`Traktr: settings migrated from the legacy plugin
+  folder. Your Trakt token, TMDB cache, and history state are
+  preserved.`) — in their saved UI language. See spec 0004 for the
+  full edge-case matrix (8 scenarios covered).
+- **The legacy folder is NOT deleted.** Safety net for users who
+  downgrade via BRAT; cleanup is the user's decision. A console line
+  states the folder is safe to delete manually after they've verified
+  0.4.0 works.
+- **`docs/specs/0004-obsidian-directory-submission.md`** — design +
+  submission process documentation.
+- **One new smoke test** verifies the `notice.migratedFromLegacyFolder`
+  i18n key resolves correctly in both `en` and `zh-CN`. Total tests:
+  236 (was 235).
+
+### Migration
+
+The migration runs **automatically** on the first 0.4.0 launch for
+BRAT users. No user action required. If the user later reverts to
+0.3.x, the legacy folder is still intact and 0.3.x resumes from where
+it left off.
+
+Fresh installs of 0.4.0 (no legacy folder) skip the migration cleanly
+and proceed with DEFAULT_SETTINGS as usual.
+
+See [spec 0004](specs/0004-obsidian-directory-submission.md) for design.
+
 ## 0.3.2 — 2026-05-11
 
 **UX: make the TMDB-vs-Trakt API contract obvious and testable.**

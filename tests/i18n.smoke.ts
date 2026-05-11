@@ -1878,6 +1878,39 @@ void (async () => {
     );
   }
 
+  // ── Test 41: spec 0004 legacy-folder migration notice ─────────────────
+  // Verifies the i18n key the migration logic relies on is present in
+  // both languages. The file-reading half of the migration is bound to
+  // Obsidian's vault adapter and is tested manually during release
+  // verification (covered by the spec 0004 edge-case matrix).
+
+  console.log("\n[41] migration notice i18n key present + sensible in both langs");
+  {
+    const enMsg = t("notice.migratedFromLegacyFolder", "en");
+    const zhMsg = t("notice.migratedFromLegacyFolder", "zh-CN");
+
+    assertTrue(
+      enMsg.length > 0 && !enMsg.startsWith("notice."),
+      "en: key resolved (didn't fall through to raw key)",
+    );
+    assertTrue(
+      zhMsg.length > 0 && !zhMsg.startsWith("notice."),
+      "zh-CN: key resolved",
+    );
+    assertTrue(
+      enMsg.toLowerCase().includes("traktr"),
+      "en notice mentions Traktr so users know which plugin spoke",
+    );
+    assertTrue(
+      zhMsg.includes("Traktr") || zhMsg.includes("迁移"),
+      "zh-CN notice mentions Traktr / migration so users know what happened",
+    );
+    assertTrue(
+      enMsg !== zhMsg,
+      "en + zh-CN actually differ (not accidentally the same string)",
+    );
+  }
+
   console.log(`\n${"=".repeat(60)}`);
   console.log(`Smoke results: ${passes} passed, ${failures} failed`);
   console.log("=".repeat(60));

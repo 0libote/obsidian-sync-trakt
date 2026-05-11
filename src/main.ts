@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Notice, Plugin, normalizePath } from "obsidian";
 import {
   DEFAULT_SETTINGS,
   TraktrSettingTab,
@@ -6,8 +6,17 @@ import {
 } from "./settings";
 import { AuthModal } from "./trakt-auth";
 import { SyncEngine } from "./sync-engine";
-import { getTranslator } from "./i18n";
+import { getTranslator, type UiLanguage } from "./i18n";
 import { clearTmdbCache } from "./tmdb-api";
+
+/**
+ * [0.4.0] The plugin's folder name changed from `obsidian-sync-trakt`
+ * (used 0.1.0 → 0.3.x) to `sync-trakt` (required for Obsidian's official
+ * Community Plugins directory — bot rejects ids containing "obsidian").
+ * `LEGACY_PLUGIN_ID` is the old folder name we migrate FROM. See
+ * spec 0004 for the migration design + edge cases.
+ */
+const LEGACY_PLUGIN_ID = "obsidian-sync-trakt";
 
 export default class TraktrPlugin extends Plugin {
   settings: TraktrSettings = { ...DEFAULT_SETTINGS };
@@ -167,11 +176,69 @@ export default class TraktrPlugin extends Plugin {
   }
 
   async loadSettings() {
-    const loaded = (await this.loadData()) as Partial<TraktrSettings> | null;
+    let loaded = (await this.loadData()) as Partial<TraktrSettings> | null;
+    // [0.4.0] If our own data.json is empty, check whether this is a
+    // 0.3.x → 0.4.0 upgrade with a legacy folder still sitting at
+    // `.obsidian/plugins/obsidian-sync-trakt/`. If so, migrate the user's
+    // state (Trakt tokens, TMDB cache, history state, settings) over to
+    // the new folder transparently. The check is implicit / idempotent:
+    // once migrated, our own data.json is populated, so this branch
+    // never fires again. See spec 0004.
+    if (!loaded) {
+      loaded = await this.migrateFromLegacyFolder();
+    }
     // [0.2.0] Mutate `this.settings` IN PLACE so SyncEngine's reference
     // (set via the constructor) stays valid. Replacing the object would
     // leave SyncEngine pointing at stale data.
-    Object.assign(this.settings, DEFAULT_SETTINGS, loaded);
+    Object.assign(this.settings, DEFAULT_SETTINGS, loaded ?? {});
+  }
+
+  /**
+   * [0.4.0] One-time migration from the legacy `obsidian-sync-trakt`
+   * folder to the new `sync-trakt` folder. Triggered the first time
+   * 0.4.0 launches on a device that previously had 0.1.0-0.3.x installed.
+   *
+   * The legacy folder is read but NOT deleted — this is a safety net so
+   * users who downgrade via BRAT find their old state intact. A console
+   * line tells the user it's safe to delete manually after they've
+   * confirmed 0.4.0 works.
+   *
+   * All exceptions are swallowed and the function returns null on
+   * failure: a migration error should never block plugin launch.
+   */
+  private async migrateFromLegacyFolder(): Promise<Partial<TraktrSettings> | null> {
+    const legacyPath = normalizePath(
+      `${this.app.vault.configDir}/plugins/${LEGACY_PLUGIN_ID}/data.json`,
+    );
+    try {
+      const exists = await this.app.vault.adapter.exists(legacyPath);
+      if (!exists) return null;
+
+      const raw = await this.app.vault.adapter.read(legacyPath);
+      const parsed = JSON.parse(raw) as Partial<TraktrSettings>;
+
+      // Write to the new folder via the standard plugin API.
+      await this.saveData(parsed);
+
+      // Surface the migration so the user knows what just happened.
+      // Translates to the user's saved UI language if available.
+      const lang: UiLanguage = parsed.uiLanguage ?? "en";
+      new Notice(
+        getTranslator(lang)("notice.migratedFromLegacyFolder"),
+        8000,
+      );
+      console.debug(
+        `[Traktr] Migrated data.json from .obsidian/plugins/${LEGACY_PLUGIN_ID}/ ` +
+          `→ .obsidian/plugins/sync-trakt/. Old folder left in place; safe to delete manually after confirming.`,
+      );
+      return parsed;
+    } catch (e) {
+      console.warn(
+        "[Traktr] Legacy-folder migration failed; continuing with defaults:",
+        e,
+      );
+      return null;
+    }
   }
 
   async saveSettings() {

@@ -1,8 +1,8 @@
 {
-  "id": "obsidian-sync-trakt",
+  "id": "sync-trakt",
   "name": "Obsidian Sync Trakt",
   "version": "0.3.2",
-  "minAppVersion": "1.4.0",
+  "minAppVersion": "1.6.6",
   "description": "Sync your Trakt.tv watchlist, watch history, favorites, and ratings into Obsidian notes — with metadata localization and detailed per-episode watch timestamps.",
   "author": "o1xhack",
   "authorUrl": "https://github.com/o1xhack",

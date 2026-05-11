@@ -462,6 +462,12 @@ const STRINGS = {
     en: "Sync already in progress.",
     "zh-CN": "同步已经在进行中。",
   },
+  // [0.4.0] Shown once on first launch of 0.4.0 if state was migrated
+  // from the legacy `obsidian-sync-trakt` plugin folder.
+  "notice.migratedFromLegacyFolder": {
+    en: "Traktr: settings migrated from the legacy plugin folder. Your Trakt token, TMDB cache, and history state are preserved.",
+    "zh-CN": "Traktr：已从旧插件目录迁移设置。Trakt token、TMDB 缓存和历史状态都已保留。",
+  },
   "notice.syncComplete": {
     en: "Sync complete: {added} added, {updated} updated, {unchanged} unchanged, {removed} removed",
     "zh-CN": "同步完成：新增 {added}，更新 {updated}，未变 {unchanged}，移除 {removed}",
