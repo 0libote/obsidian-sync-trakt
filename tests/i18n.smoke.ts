@@ -57,6 +57,7 @@ import {
   isMarkerRegionEmpty,
   replaceMarkerBlock,
   appendMarkerBlock,
+  mergeMarkerBlockIncremental,
   renderVerb,
   renderEntry,
   renderMarkerBlock,
@@ -2651,6 +2652,181 @@ void (async () => {
       !isMarkerRegionEmpty(`only ${start} no end`, start, end),
       "missing end marker → not empty (treat as no region)",
     );
+  }
+
+  // ── Test 57: [0.8.0] incremental merge algorithm ─────────────────────
+  // Locks in the seven scenarios documented in the settings-tab table.
+  // The new function MUST preserve user content byte-for-byte while
+  // appending newly-arrived events.
+
+  console.log("\n[57] mergeMarkerBlockIncremental — append-only semantics");
+  {
+    const start = "%% trakt:daily:start %%";
+    const end = "%% trakt:daily:end %%";
+
+    // Scenario 1: no user edits, new event appears
+    {
+      const existing = `before\n${start}\n10:00 — watched X S1E1\n${end}\nafter`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X S1E1",
+        "14:00 — watched X S1E2",
+      ]);
+      assertEq(
+        result,
+        `before\n${start}\n10:00 — watched X S1E1\n14:00 — watched X S1E2\n${end}\nafter`,
+        "appends only new line; existing event preserved exactly once",
+      );
+    }
+
+    // Scenario 2: user appended thoughts to a rendered line (prefix match)
+    {
+      const existing = `${start}\n10:00 — watched X S1E1 ← great episode!\n${end}`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X S1E1",
+        "14:00 — watched X S1E2",
+      ]);
+      assertEq(
+        result,
+        `${start}\n10:00 — watched X S1E1 ← great episode!\n14:00 — watched X S1E2\n${end}`,
+        "user-appended text preserved; new event added below",
+      );
+    }
+
+    // Scenario 3: user inserted a custom line in the middle
+    {
+      const existing = `${start}\n10:00 — watched X S1E1\nMY OWN NOTE\n14:00 — watched X S1E2\n${end}`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X S1E1",
+        "14:00 — watched X S1E2",
+        "21:30 — rated 9/10 Y",
+      ]);
+      assertEq(
+        result,
+        `${start}\n10:00 — watched X S1E1\nMY OWN NOTE\n14:00 — watched X S1E2\n21:30 — rated 9/10 Y\n${end}`,
+        "custom mid-block line preserved; new event appended at end",
+      );
+    }
+
+    // Scenario 4: nothing new to add → content byte-identical (critical
+    // for diff-based write layer to not touch the file)
+    {
+      const existing = `${start}\n10:00 — watched X S1E1\n${end}`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X S1E1",
+      ]);
+      assertEq(
+        result,
+        existing,
+        "no new lines → returned content is byte-identical to input",
+      );
+    }
+
+    // Scenario 5: empty marker region (e.g. injected by Daily Note
+    // template) gets filled correctly
+    {
+      const existing = `before\n${start}\n${end}\nafter`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X S1E1",
+      ]);
+      assertEq(
+        result,
+        `before\n${start}\n10:00 — watched X S1E1\n${end}\nafter`,
+        "empty marker region filled with new event",
+      );
+    }
+
+    // Scenario 6: language switch — old language stays, new line added
+    {
+      const existing = `${start}\n10:00 — 看了 X S1E1\n${end}`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X S1E1",
+      ]);
+      assertEq(
+        result,
+        `${start}\n10:00 — 看了 X S1E1\n10:00 — watched X S1E1\n${end}`,
+        "language switch: old zh-CN line stays, new en line appended",
+      );
+    }
+
+    // Scenario 7: rating change on Trakt — both versions coexist
+    {
+      const existing = `${start}\n21:30 — rated 8/10 X\n${end}`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "21:30 — rated 10/10 X",
+      ]);
+      assertEq(
+        result,
+        `${start}\n21:30 — rated 8/10 X\n21:30 — rated 10/10 X\n${end}`,
+        "rating change: both old + new ratings present (documented trade-off)",
+      );
+    }
+
+    // Scenario 8: user deleted a previously rendered line — it gets
+    // re-added at the END (not at original position)
+    {
+      // User had S1E1 + S1E2, deleted S1E1
+      const existing = `${start}\n14:00 — watched X S1E2\n${end}`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X S1E1",
+        "14:00 — watched X S1E2",
+      ]);
+      assertEq(
+        result,
+        `${start}\n14:00 — watched X S1E2\n10:00 — watched X S1E1\n${end}`,
+        "user-deleted line re-appears at end on next sync (documented limit)",
+      );
+    }
+
+    // Scenario 9: defensive — no markers at all → returned unchanged
+    {
+      const existing = "no markers here at all";
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X S1E1",
+      ]);
+      assertEq(
+        result,
+        existing,
+        "missing markers → content returned unchanged (defensive)",
+      );
+    }
+
+    // Scenario 10: identical start/end markers → rejected by validity
+    // check, returned unchanged. Reuses the same safety net as
+    // replaceMarkerBlock.
+    {
+      const sameMarker = "%%";
+      const existing = `${sameMarker}\nfoo\n${sameMarker}`;
+      const result = mergeMarkerBlockIncremental(
+        existing,
+        sameMarker,
+        sameMarker,
+        ["new line"],
+      );
+      assertEq(
+        result,
+        existing,
+        "identical start/end → content returned unchanged",
+      );
+    }
+
+    // Scenario 11: content OUTSIDE the marker region must be byte-for-byte
+    // preserved (the spec 0006 safety contract).
+    {
+      const before = "# My Day\n\nLots of stuff I wrote\n\n";
+      const after = "\n\n## Tomorrow\n- buy milk";
+      const existing = `${before}${start}\n${end}${after}`;
+      const result = mergeMarkerBlockIncremental(existing, start, end, [
+        "10:00 — watched X",
+      ]);
+      assertTrue(
+        result.startsWith(before),
+        "content before marker region preserved verbatim",
+      );
+      assertTrue(
+        result.endsWith(after),
+        "content after marker region preserved verbatim",
+      );
+    }
   }
 
   console.log(`\n${"=".repeat(60)}`);

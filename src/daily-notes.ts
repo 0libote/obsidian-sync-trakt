@@ -174,6 +174,91 @@ export function appendMarkerBlock(content: string, newBlock: string): string {
   return trimmed.length > 0 ? `${trimmed}\n\n${newBlock}\n` : `${newBlock}\n`;
 }
 
+/**
+ * [0.8.0] Incremental merge — for each new event line, append it inside
+ * the marker region UNLESS some existing line already starts with it.
+ * Existing content (user notes, prior events, user edits) is preserved
+ * byte-for-byte.
+ *
+ * Algorithm:
+ *   1. Extract the inner region between markers.
+ *   2. For each new event line, scan existing lines; if any one starts
+ *      with the new line (i.e. new line is a prefix of that existing
+ *      line, which covers the "user appended text to the rendered line"
+ *      case), skip it.
+ *   3. Append remaining new lines just before the end marker, keeping
+ *      existing content intact.
+ *
+ * Caller MUST have already verified marker validity via
+ * isMarkerRegionValid (same precondition as replaceMarkerBlock). If
+ * markers are missing or inverted this returns content unchanged as a
+ * defensive fallback.
+ *
+ * Trade-offs vs replaceMarkerBlock (the "default" today-mode behaviour):
+ *   + User edits inside the marker region survive every sync.
+ *   - Trakt-side mutations (rating changes, scrobble deletions) won't
+ *     reflect — the old line stays, the new one is appended alongside.
+ *   - Language switches produce side-by-side bilingual content until
+ *     the user clears the region.
+ * The comparison table shown in Settings UI walks the user through
+ * exactly these cases so they pick the right mode for their workflow.
+ */
+export function mergeMarkerBlockIncremental(
+  content: string,
+  markerStart: string,
+  markerEnd: string,
+  newEventLines: string[],
+): string {
+  if (!isMarkerRegionValid(content, markerStart, markerEnd)) {
+    // Defensive: caller should have checked. Return content untouched
+    // rather than crash or write to a malformed region.
+    return content;
+  }
+
+  const startIdx = content.indexOf(markerStart);
+  const endIdx = content.indexOf(markerEnd, startIdx + markerStart.length);
+  const inner = content.slice(startIdx + markerStart.length, endIdx);
+
+  // Split preserving each line as-is (no per-line trimming — user
+  // content matters byte-for-byte, including trailing spaces).
+  const existingLines = inner.split("\n");
+
+  // Which new event lines aren't already covered by an existing line?
+  // "Covered" = some existing line starts with the new line string,
+  // which catches both "exact match" and "user appended notes after
+  // the rendered line".
+  const linesToAppend: string[] = [];
+  for (const newLine of newEventLines) {
+    if (newLine.length === 0) continue; // defensive — shouldn't happen
+    const covered = existingLines.some((existing) =>
+      existing.startsWith(newLine),
+    );
+    if (!covered) linesToAppend.push(newLine);
+  }
+
+  // Nothing to do — preserve the file byte-for-byte. Critical for the
+  // diff-based write layer: if we return a string that compares
+  // unequal due to formatting tweaks, every sync touches the file.
+  if (linesToAppend.length === 0) return content;
+
+  // Strip ONLY trailing newlines/whitespace from inner so we can place
+  // the appended lines flush with the rest, ending with a single \n
+  // before the marker. Leading whitespace inside `inner` stays
+  // untouched (user might have intentional leading blank lines).
+  const innerTrimmedEnd = inner.replace(/[\s\n]+$/, "");
+  const appended = linesToAppend.join("\n");
+  const newInner =
+    innerTrimmedEnd.length === 0
+      ? `\n${appended}\n`
+      : `${innerTrimmedEnd}\n${appended}\n`;
+
+  return (
+    content.slice(0, startIdx + markerStart.length) +
+    newInner +
+    content.slice(endIdx)
+  );
+}
+
 // ── Event aggregation ──
 
 /**
@@ -513,6 +598,32 @@ export async function processDate(
     return { status: "skipped_no_file" };
   }
   const lang = getEffectiveTemplateLanguage(settings);
+  const syncMode = settings.dailyNotesSyncMode ?? "default";
+
+  // [0.8.0] "incremental" mode: only append new event lines that aren't
+  // already covered by an existing line. Preserves user edits inside the
+  // marker region byte-for-byte. Trade-off documented in the settings
+  // comparison table. Falls back to "default" (full replace) for unknown
+  // mode values (defensive against future setting additions).
+  if (hasMarkers && syncMode === "incremental") {
+    const newEventLines = events.map((e) => renderEntry(e, lang));
+    if (newEventLines.length === 0) {
+      // Nothing to add — preserve the file byte-for-byte. Without this
+      // check we'd still go through vault.process and the diff layer
+      // would touch the file unnecessarily.
+      return { status: "overwrote" };
+    }
+    await app.vault.process(file, (old) =>
+      mergeMarkerBlockIncremental(
+        old,
+        settings.dailyNotesMarkerStart,
+        settings.dailyNotesMarkerEnd,
+        newEventLines,
+      ),
+    );
+    return { status: "overwrote" };
+  }
+
   const block = renderMarkerBlock(
     events,
     settings.dailyNotesMarkerStart,

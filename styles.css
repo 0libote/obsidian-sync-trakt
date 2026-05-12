@@ -149,3 +149,29 @@
   color: var(--text-normal);
   font-size: 0.9em;
 }
+
+/* [0.8.0] Daily Notes sync mode — comparison table. */
+.trakt-sync-mode-table {
+  width: 100%;
+  margin: 0.75em 0 1.25em 0;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.trakt-sync-mode-table th,
+.trakt-sync-mode-table td {
+  text-align: left;
+  padding: 0.45em 0.7em;
+  border-bottom: 1px solid var(--background-modifier-border);
+  vertical-align: top;
+}
+
+.trakt-sync-mode-table th {
+  font-weight: 600;
+  color: var(--text-normal);
+  background: var(--background-secondary);
+}
+
+.trakt-sync-mode-table td:first-child {
+  color: var(--text-muted);
+}

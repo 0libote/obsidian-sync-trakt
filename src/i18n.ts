@@ -77,6 +77,110 @@ const STRINGS = {
     en: "Rated → requires Sync ratings",
     "zh-CN": "打分 → 需要开启「同步评分」",
   },
+  // [0.8.0] Today-mode write strategy. Section sits at the bottom of
+  // the Daily Notes tab, after Manual backfill. Renders a comparison
+  // table so the user can pick the right mode for their workflow.
+  "daily.syncMode.heading": { en: "Sync mode", "zh-CN": "同步模式" },
+  "daily.syncMode.name": { en: "Today's sync mode", "zh-CN": "今天的同步模式" },
+  "daily.syncMode.desc": {
+    en: "How today's marker region is updated on every sync. Past days are unaffected.",
+    "zh-CN": "今日 marker 区间每次同步时的更新方式。不影响过去的日期。",
+  },
+  "daily.syncMode.default": { en: "Default", "zh-CN": "默认" },
+  "daily.syncMode.incremental": { en: "Incremental", "zh-CN": "增量" },
+  // Comparison table headers + cells. Split per-cell so each language
+  // reads naturally rather than getting a glued translation.
+  "daily.syncMode.table.col.scenario": { en: "Scenario", "zh-CN": "场景" },
+  "daily.syncMode.table.col.default": { en: "Default", "zh-CN": "默认" },
+  "daily.syncMode.table.col.incremental": {
+    en: "Incremental",
+    "zh-CN": "增量",
+  },
+  "daily.syncMode.table.row.append.scenario": {
+    en: "Append text to a rendered line",
+    "zh-CN": "行尾追加感想",
+  },
+  "daily.syncMode.table.row.append.default": {
+    en: "Deleted",
+    "zh-CN": "被删掉",
+  },
+  "daily.syncMode.table.row.append.incremental": {
+    en: "Preserved",
+    "zh-CN": "保留",
+  },
+  "daily.syncMode.table.row.insert.scenario": {
+    en: "Insert a custom line in the middle",
+    "zh-CN": "中间插一行笔记",
+  },
+  "daily.syncMode.table.row.insert.default": {
+    en: "Deleted",
+    "zh-CN": "被删掉",
+  },
+  "daily.syncMode.table.row.insert.incremental": {
+    en: "Preserved",
+    "zh-CN": "保留",
+  },
+  "daily.syncMode.table.row.delete.scenario": {
+    en: "Delete a rendered line",
+    "zh-CN": "删除某一行",
+  },
+  "daily.syncMode.table.row.delete.default": {
+    en: "Restored next sync",
+    "zh-CN": "下次同步自动恢复",
+  },
+  "daily.syncMode.table.row.delete.incremental": {
+    en: "Re-added at end",
+    "zh-CN": "下次同步从末尾追加回来",
+  },
+  "daily.syncMode.table.row.edit.scenario": {
+    en: "Edit a rendered line",
+    "zh-CN": "改了某一行内容",
+  },
+  "daily.syncMode.table.row.edit.default": {
+    en: "Deleted",
+    "zh-CN": "被删掉",
+  },
+  "daily.syncMode.table.row.edit.incremental": {
+    en: "Both lines coexist",
+    "zh-CN": "新旧两行并存",
+  },
+  "daily.syncMode.table.row.lang.scenario": {
+    en: "Switch metadata language",
+    "zh-CN": "切换 metadata 语言",
+  },
+  "daily.syncMode.table.row.lang.default": {
+    en: "Re-renders in new language",
+    "zh-CN": "整段重渲染成新语言",
+  },
+  "daily.syncMode.table.row.lang.incremental": {
+    en: "Both languages coexist",
+    "zh-CN": "新旧语言并存",
+  },
+  "daily.syncMode.table.row.rating.scenario": {
+    en: "Change rating on Trakt",
+    "zh-CN": "Trakt 上修改评分",
+  },
+  "daily.syncMode.table.row.rating.default": {
+    en: "Rating updates",
+    "zh-CN": "评分更新",
+  },
+  "daily.syncMode.table.row.rating.incremental": {
+    en: "Both ratings coexist",
+    "zh-CN": "新旧评分两行并存",
+  },
+  "daily.syncMode.table.row.removed.scenario": {
+    en: "Delete event on Trakt",
+    "zh-CN": "Trakt 删除观看记录",
+  },
+  "daily.syncMode.table.row.removed.default": {
+    en: "Line disappears",
+    "zh-CN": "对应行消失",
+  },
+  "daily.syncMode.table.row.removed.incremental": {
+    en: "Old line stays",
+    "zh-CN": "旧行保留",
+  },
+
   "daily.backfill.heading": { en: "Manual backfill", "zh-CN": "手动回溯" },
   "daily.backfill.days.name": { en: "Days to backfill", "zh-CN": "回溯天数" },
   "daily.backfill.days.desc": {

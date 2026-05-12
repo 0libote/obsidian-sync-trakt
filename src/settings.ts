@@ -256,7 +256,15 @@ export interface TraktrSettings {
   dailyNotesMarkerStart: string;        // default: "%% trakt:daily:start %%"
   dailyNotesMarkerEnd: string;          // default: "%% trakt:daily:end %%"
   dailyNotesBackfillDays: number;       // 1..30 for manual button
+  // [0.8.0] Today-mode write strategy. "default" = full re-render every
+  // sync (legacy behaviour, always reflects current Trakt state).
+  // "incremental" = preserve existing lines, append-only (protects user
+  // edits, doesn't propagate Trakt-side mutations). See spec docs +
+  // settings-tab comparison table.
+  dailyNotesSyncMode: DailyNotesSyncMode;
 }
+
+export type DailyNotesSyncMode = "default" | "incremental";
 
 export const DEFAULT_MOVIE_TEMPLATE_EN = `![poster]({{poster_url}})
 
@@ -1084,6 +1092,7 @@ export const DEFAULT_SETTINGS: TraktrSettings = {
   dailyNotesMarkerStart: "%% trakt:daily:start %%",
   dailyNotesMarkerEnd: "%% trakt:daily:end %%",
   dailyNotesBackfillDays: 7,
+  dailyNotesSyncMode: "default",
 };
 
 /**
@@ -1321,6 +1330,88 @@ export class TraktrSettingTab extends PluginSettingTab {
           ).open();
         }),
     );
+
+    // [0.8.0] Sync mode selector + comparison table. Lives at the bottom
+    // of the Daily Notes tab so users have all other config decided
+    // before they pick the write strategy.
+    new Setting(containerEl).setName(t("daily.syncMode.heading")).setHeading();
+
+    new Setting(containerEl)
+      .setName(t("daily.syncMode.name"))
+      .setDesc(t("daily.syncMode.desc"))
+      .addDropdown((dd) =>
+        dd
+          .addOption("default", t("daily.syncMode.default"))
+          .addOption("incremental", t("daily.syncMode.incremental"))
+          .setValue(this.plugin.settings.dailyNotesSyncMode)
+          .onChange(async (value) => {
+            this.plugin.settings.dailyNotesSyncMode =
+              value === "incremental" ? "incremental" : "default";
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    // Comparison table — built with DOM API so cell text goes through
+    // i18n. The row keys mirror the table in the design discussion.
+    const tableRows: ReadonlyArray<{
+      scenario: string;
+      defaultCell: string;
+      incrementalCell: string;
+    }> = [
+      {
+        scenario: t("daily.syncMode.table.row.append.scenario"),
+        defaultCell: t("daily.syncMode.table.row.append.default"),
+        incrementalCell: t("daily.syncMode.table.row.append.incremental"),
+      },
+      {
+        scenario: t("daily.syncMode.table.row.insert.scenario"),
+        defaultCell: t("daily.syncMode.table.row.insert.default"),
+        incrementalCell: t("daily.syncMode.table.row.insert.incremental"),
+      },
+      {
+        scenario: t("daily.syncMode.table.row.delete.scenario"),
+        defaultCell: t("daily.syncMode.table.row.delete.default"),
+        incrementalCell: t("daily.syncMode.table.row.delete.incremental"),
+      },
+      {
+        scenario: t("daily.syncMode.table.row.edit.scenario"),
+        defaultCell: t("daily.syncMode.table.row.edit.default"),
+        incrementalCell: t("daily.syncMode.table.row.edit.incremental"),
+      },
+      {
+        scenario: t("daily.syncMode.table.row.lang.scenario"),
+        defaultCell: t("daily.syncMode.table.row.lang.default"),
+        incrementalCell: t("daily.syncMode.table.row.lang.incremental"),
+      },
+      {
+        scenario: t("daily.syncMode.table.row.rating.scenario"),
+        defaultCell: t("daily.syncMode.table.row.rating.default"),
+        incrementalCell: t("daily.syncMode.table.row.rating.incremental"),
+      },
+      {
+        scenario: t("daily.syncMode.table.row.removed.scenario"),
+        defaultCell: t("daily.syncMode.table.row.removed.default"),
+        incrementalCell: t("daily.syncMode.table.row.removed.incremental"),
+      },
+    ];
+
+    const table = containerEl.createEl("table", {
+      cls: "trakt-sync-mode-table",
+    });
+    const thead = table.createEl("thead");
+    const headerRow = thead.createEl("tr");
+    headerRow.createEl("th", { text: t("daily.syncMode.table.col.scenario") });
+    headerRow.createEl("th", { text: t("daily.syncMode.table.col.default") });
+    headerRow.createEl("th", {
+      text: t("daily.syncMode.table.col.incremental"),
+    });
+    const tbody = table.createEl("tbody");
+    for (const row of tableRows) {
+      const tr = tbody.createEl("tr");
+      tr.createEl("td", { text: row.scenario });
+      tr.createEl("td", { text: row.defaultCell });
+      tr.createEl("td", { text: row.incrementalCell });
+    }
   }
 
   display(): void {
