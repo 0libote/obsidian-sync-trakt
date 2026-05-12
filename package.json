@@ -1,6 +1,6 @@
 {
   "name": "obsidian-sync-trakt",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Sync Trakt.tv watchlist, watch history, favorites, and ratings into Markdown notes — with metadata localization (zh / ja / etc) and detailed per-episode watch timestamps.",
   "main": "main.js",
   "repository": {
