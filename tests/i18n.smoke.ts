@@ -49,6 +49,19 @@ import {
 import { processWithConcurrency } from "../src/utils";
 import { buildFilename, disambiguatedFilename } from "../src/sync-engine";
 import {
+  localTodayISODate,
+  localHHMM,
+  addDaysISO,
+  daysBetweenISO,
+  isMarkerRegionValid,
+  replaceMarkerBlock,
+  appendMarkerBlock,
+  renderVerb,
+  renderEntry,
+  renderMarkerBlock,
+  aggregateEventsForDate,
+} from "../src/daily-notes";
+import {
   EMPTY_HISTORY_STATE,
   type HistoryState,
   type TmdbCache,
@@ -2092,6 +2105,289 @@ void (async () => {
       assertTrue(
         enLabel !== zhLabel,
         `${key}: en and zh-CN labels actually differ`,
+      );
+    }
+  }
+
+  // ── Tests 46-52: spec 0006 Daily Notes integration ────────────────────
+  // The file-IO half of daily-notes is bound to Obsidian's vault API
+  // and verified manually during release. Pure logic is unit-tested
+  // here: date helpers, marker detection, block rendering, event
+  // aggregation. Safety contract enforced by tests 50-52.
+
+  console.log("\n[46] daily-notes: date helpers");
+  {
+    const today = localTodayISODate(new Date("2026-05-11T15:00:00"));
+    assertEq(today, "2026-05-11", "localTodayISODate returns YYYY-MM-DD");
+
+    assertEq(localHHMM("2026-05-11T15:00:00Z"), localHHMM("2026-05-11T15:00:00Z"),
+      "localHHMM is deterministic");
+    const hhmm = localHHMM("2026-05-11T15:30:00");
+    assertTrue(/^\d{2}:\d{2}$/.test(hhmm), `localHHMM produces HH:MM (got "${hhmm}")`);
+
+    assertEq(addDaysISO("2026-05-11", 1), "2026-05-12", "add 1 day");
+    assertEq(addDaysISO("2026-05-11", -1), "2026-05-10", "subtract 1 day");
+    assertEq(addDaysISO("2026-12-31", 1), "2027-01-01", "year rollover");
+    assertEq(addDaysISO("2026-02-28", 1), "2026-03-01", "non-leap Feb rollover");
+
+    assertEq(daysBetweenISO("2026-05-11", "2026-05-12"), 1, "diff = 1");
+    assertEq(daysBetweenISO("2026-05-11", "2026-05-11"), 0, "diff = 0 (same day)");
+    assertEq(daysBetweenISO("2026-05-11", "2026-06-11"), 31, "diff = 31 days");
+  }
+
+  console.log("\n[47] daily-notes: marker region detection");
+  {
+    const start = "%% trakt:daily:start %%";
+    const end = "%% trakt:daily:end %%";
+    assertTrue(
+      isMarkerRegionValid(`${start}\nfoo\n${end}`, start, end),
+      "valid pair returns true",
+    );
+    assertTrue(
+      !isMarkerRegionValid("no markers here", start, end),
+      "missing both → false",
+    );
+    assertTrue(
+      !isMarkerRegionValid(`only ${start} no end`, start, end),
+      "missing end → false",
+    );
+    assertTrue(
+      !isMarkerRegionValid(`only ${end} no start`, start, end),
+      "missing start → false",
+    );
+    assertTrue(
+      !isMarkerRegionValid(`${end}\nfoo\n${start}`, start, end),
+      "end before start → false",
+    );
+  }
+
+  console.log("\n[48] daily-notes: block render with markers");
+  {
+    const start = "%% trakt:daily:start %%";
+    const end = "%% trakt:daily:end %%";
+
+    const empty = renderMarkerBlock([], start, end, "en");
+    assertEq(empty, `${start}\n${end}`, "empty events → bare markers");
+
+    const oneEvent = renderMarkerBlock(
+      [
+        {
+          timestamp: "2026-05-11T21:30:00Z",
+          localTime: "21:30",
+          action: "watched",
+          display: "The Dark Knight (2008)",
+        },
+      ],
+      start,
+      end,
+      "en",
+    );
+    assertTrue(
+      oneEvent.includes("21:30 — watched The Dark Knight (2008)"),
+      "single event line rendered",
+    );
+    assertTrue(oneEvent.startsWith(start), "block starts with start marker");
+    assertTrue(oneEvent.endsWith(end), "block ends with end marker");
+  }
+
+  console.log("\n[49] daily-notes: verb localization (11 languages)");
+  {
+    assertEq(renderVerb("watched", "en"), "watched", "en watched");
+    assertEq(renderVerb("watched", "zh-CN"), "看了", "zh-CN watched");
+    assertEq(renderVerb("watched", "ja-JP"), "視聴", "ja-JP watched");
+    assertEq(renderVerb("watched", "ko-KR"), "시청", "ko-KR watched");
+    assertEq(renderVerb("watched", "fr-FR"), "a regardé", "fr-FR watched");
+    assertEq(renderVerb("watched", "de-DE"), "hat angeschaut", "de-DE watched");
+    assertEq(renderVerb("watched", "it-IT"), "ha visto", "it-IT watched");
+    assertEq(renderVerb("watched", "es-ES"), "vio", "es-ES watched");
+    assertEq(renderVerb("watched", "pt-BR"), "assistiu", "pt-BR watched");
+    assertEq(renderVerb("watched", "ru-RU"), "посмотрел", "ru-RU watched");
+
+    // Short codes alias to full locale
+    assertEq(renderVerb("watched", "ja"), renderVerb("watched", "ja-JP"),
+      "'ja' alias = 'ja-JP'");
+
+    // Unsupported falls back to English
+    assertEq(renderVerb("watched", "tr-TR"), "watched", "tr-TR fallback to EN");
+
+    // Rated includes the rating value
+    assertTrue(
+      renderVerb("rated", "en", 9).endsWith("9/10"),
+      `en rated 9 → ends with "9/10" (got: "${renderVerb("rated", "en", 9)}")`,
+    );
+    assertTrue(
+      renderVerb("rated", "zh-CN", 8).endsWith("8/10"),
+      "zh-CN rated 8 → ends with 8/10",
+    );
+  }
+
+  console.log("\n[50] daily-notes: safety — replaceMarkerBlock preserves outside content");
+  {
+    const start = "%% trakt:daily:start %%";
+    const end = "%% trakt:daily:end %%";
+    const original =
+      "# My day\n\n" +
+      "Some thoughts about today.\n\n" +
+      `${start}\n` +
+      "old content\n" +
+      `${end}\n\n` +
+      "More thoughts after the block.\n";
+
+    const replaced = replaceMarkerBlock(
+      original,
+      start,
+      end,
+      `${start}\nnew content\n${end}`,
+    );
+
+    assertTrue(replaced.includes("# My day"), "H1 preserved");
+    assertTrue(
+      replaced.includes("Some thoughts about today."),
+      "content before block preserved",
+    );
+    assertTrue(
+      replaced.includes("More thoughts after the block."),
+      "content after block preserved",
+    );
+    assertTrue(replaced.includes("new content"), "block content updated");
+    assertTrue(
+      !replaced.includes("old content"),
+      "old block content gone",
+    );
+  }
+
+  console.log("\n[51] daily-notes: safety — appendMarkerBlock preserves existing content");
+  {
+    const start = "%% trakt:daily:start %%";
+    const end = "%% trakt:daily:end %%";
+    const original = "# My day\n\nSome thoughts.\n\n- a list item\n";
+    const block = `${start}\n21:30 — watched X\n${end}`;
+
+    const result = appendMarkerBlock(original, block);
+
+    assertTrue(
+      result.startsWith("# My day"),
+      "original content preserved at start",
+    );
+    assertTrue(
+      result.includes("Some thoughts."),
+      "original body preserved",
+    );
+    assertTrue(
+      result.includes("- a list item"),
+      "original list preserved",
+    );
+    assertTrue(result.includes(block), "block appended");
+
+    // Empty input → just the block
+    const empty = appendMarkerBlock("", block);
+    assertEq(empty, `${block}\n`, "empty input → just block");
+  }
+
+  console.log("\n[52] daily-notes: event aggregation by date + source flag gating");
+  {
+    const day = "2026-05-11";
+
+    const item: NormalizedItem = {
+      type: "show",
+      title: "Breaking Bad",
+      year: 2008,
+      ids: { trakt: 100, slug: "breaking-bad", imdb: "tt0903747", tmdb: 1396 },
+      overview: "",
+      genres: [],
+      runtime: 47,
+      rating: 9.5,
+      votes: 12000,
+      certification: "TV-MA",
+      country: "us",
+      language: "en",
+      status: "ended",
+      originalTitle: "Breaking Bad",
+      originalOverview: "",
+      originalGenres: [],
+      // detailed history — 2 episodes at same timestamp (batch scrobble)
+      watch_history_episodes: [
+        {
+          season: 1,
+          episode: 1,
+          watched_at: ["2026-05-11T21:00:00Z"],
+        },
+        {
+          season: 1,
+          episode: 2,
+          watched_at: ["2026-05-11T21:00:00Z"],
+        },
+      ],
+      // also has watchlist + favorite + rating events on same day
+      watchlist_added_at: "2026-05-11T10:00:00Z",
+      favorited_at: "2026-05-11T11:00:00Z",
+      rated_at: "2026-05-11T22:00:00Z",
+      my_rating: 10,
+    };
+
+    const items = [item];
+
+    // All sources on
+    const allOn = aggregateEventsForDate(day, items, withSettings({
+      syncWatchedDetail: true,
+      syncWatchlist: true,
+      syncFavorites: true,
+      syncRatings: true,
+    }));
+    assertEq(allOn.length, 4, "with all sources: watch + watchlist + favorite + rated = 4 events");
+
+    // Watch event should comma-merge S1E1 + S1E2 because same timestamp
+    const watchEvent = allOn.find((e) => e.action === "watched");
+    assertTrue(
+      watchEvent !== undefined && watchEvent.display.includes("S1E1, S1E2"),
+      "same-timestamp episodes comma-merged",
+    );
+
+    // Only watched detail on
+    const onlyWatched = aggregateEventsForDate(day, items, withSettings({
+      syncWatchedDetail: true,
+      syncWatchlist: false,
+      syncFavorites: false,
+      syncRatings: false,
+    }));
+    assertEq(onlyWatched.length, 1, "with only watch: just the watch event");
+    assertEq(onlyWatched[0].action, "watched", "it's the watched event");
+
+    // Only watchlist on
+    const onlyWatchlist = aggregateEventsForDate(day, items, withSettings({
+      syncWatchedDetail: false,
+      syncWatchlist: true,
+      syncFavorites: false,
+      syncRatings: false,
+    }));
+    assertEq(onlyWatchlist.length, 1, "with only watchlist: just the watchlist event");
+    assertEq(onlyWatchlist[0].action, "added_to_watchlist", "it's the watchlist add");
+
+    // All sources off
+    const allOff = aggregateEventsForDate(day, items, withSettings({
+      syncWatchedDetail: false,
+      syncWatchlist: false,
+      syncFavorites: false,
+      syncRatings: false,
+    }));
+    assertEq(allOff.length, 0, "all sources off → no events");
+
+    // Different date → no events for this day
+    const otherDay = aggregateEventsForDate("2026-01-01", items, withSettings({
+      syncWatchedDetail: true,
+      syncWatchlist: true,
+      syncFavorites: true,
+      syncRatings: true,
+    }));
+    assertEq(otherDay.length, 0, "different date → no events");
+
+    // Events sorted by timestamp ascending
+    if (allOn.length === 4) {
+      const timestamps = allOn.map((e) => e.timestamp);
+      const sortedCopy = [...timestamps].sort();
+      assertTrue(
+        timestamps.every((t, i) => t === sortedCopy[i]),
+        "events sorted by timestamp ascending",
       );
     }
   }

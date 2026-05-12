@@ -21,6 +21,95 @@ const STRINGS = {
     "zh-CN": "Daily Notes 集成功能将在 0.7.0 版本提供。",
   },
 
+  // ── [0.7.0] Daily Notes integration (spec 0006) ──
+  "daily.heading": { en: "Daily notes integration", "zh-CN": "Daily Notes 集成" },
+  "daily.enabled.name": {
+    en: "Enable Daily Notes integration",
+    "zh-CN": "启用 Daily Notes 集成",
+  },
+  "daily.enabled.desc": {
+    en: "Auto-insert per-event lines into your Daily Note on every sync. Past days are add-only; today is overwritten so newer events appear on subsequent syncs. We never modify Daily Note content outside our marker region.",
+    "zh-CN": "每次同步时自动把事件按时间插入到你的 Daily Note。过去的日期只增不改；今天的内容每次同步都会被刷新，让晚上看的新内容能在下次同步出现。我们永远不会修改 marker 区间之外的内容。",
+  },
+  "daily.folder.name": { en: "Daily Notes folder", "zh-CN": "Daily Notes 文件夹" },
+  "daily.folder.desc": {
+    en: "Must be an existing folder. We do NOT create folders or files — only modify files that already exist.",
+    "zh-CN": "必须是已存在的文件夹。本功能**不会创建**文件夹或文件 —— 只修改已经存在的文件。",
+  },
+  "daily.format.name": { en: "Filename format", "zh-CN": "文件名格式" },
+  "daily.format.desc": {
+    en: "Moment.js format string. Examples: YYYY-MM-DD, YYYY/YYYY.MM.DD, YYYY-[W]ww/YYYY-MM-DD. Must match how your Daily Notes plugin (or you manually) names files.",
+    "zh-CN": "Moment.js 格式字符串。比如 YYYY-MM-DD、YYYY/YYYY.MM.DD、YYYY-[W]ww/YYYY-MM-DD。必须跟你 Daily Notes 插件（或你手动）的文件命名一致。",
+  },
+  "daily.markerStart.name": { en: "Start marker", "zh-CN": "起始 marker" },
+  "daily.markerEnd.name": { en: "End marker", "zh-CN": "结束 marker" },
+  "daily.marker.desc": {
+    en: "Default: %% trakt:daily:start %% — invisible Obsidian comment. Change to visible markdown (e.g. ## Trakt today) if you want the section to show in reading view.",
+    "zh-CN": "默认 %% trakt:daily:start %% —— 隐形 Obsidian 注释。想让区间在阅读模式可见就改成 markdown 标题（比如 ## 今日 Trakt）。",
+  },
+  "daily.warning": {
+    en: "⚠ Content between the two markers is auto-managed. Today's region is overwritten on every sync; do not edit text between the markers — it will be replaced.",
+    "zh-CN": "⚠ 两个 marker 之间的内容由插件自动管理。今天的内容每次同步都会被覆盖；**请勿在 marker 之间手写内容** —— 会被覆盖掉。",
+  },
+  "daily.preview.name": { en: "Entry format preview", "zh-CN": "条目格式预览" },
+  "daily.preview.desc": {
+    en: "Entries are formatted as: time — verb display. Verbs are translated based on your Note template language setting. The preview below uses your current settings.",
+    "zh-CN": "条目格式为：时间 — 动词 内容。动词跟随你的「笔记模板语言」设置翻译。下方预览按你当前设置渲染。",
+  },
+  "daily.sources.heading": { en: "Source events that appear in Daily Notes", "zh-CN": "在 Daily Notes 显示的事件类型" },
+  "daily.sources.desc": {
+    en: "Each event type is gated by its corresponding Sync source toggle. If you turn off a source, those events won't appear in Daily Notes either.",
+    "zh-CN": "每种事件类型都跟着对应的「同步来源」开关。关掉某个来源，相应事件也不会出现在 Daily Notes 里。",
+  },
+  "daily.sources.watched": {
+    en: "Watched → requires Sync watch history (detailed)",
+    "zh-CN": "看了 → 需要开启「同步详细观看记录」",
+  },
+  "daily.sources.watchlist": {
+    en: "Added to watchlist → requires Sync watchlist",
+    "zh-CN": "加入想看 → 需要开启「同步想看清单」",
+  },
+  "daily.sources.favorites": {
+    en: "Favorited → requires Sync favorites",
+    "zh-CN": "收藏了 → 需要开启「同步收藏」",
+  },
+  "daily.sources.ratings": {
+    en: "Rated → requires Sync ratings",
+    "zh-CN": "打分 → 需要开启「同步评分」",
+  },
+  "daily.backfill.heading": { en: "Manual backfill", "zh-CN": "手动回溯" },
+  "daily.backfill.days.name": { en: "Days to backfill", "zh-CN": "回溯天数" },
+  "daily.backfill.days.desc": {
+    en: "How many past days to fill when you click the button below. Range 1-30.",
+    "zh-CN": "点击下方按钮时回溯多少天。范围 1-30。",
+  },
+  "daily.backfill.button": {
+    en: "Backfill last {days} days",
+    "zh-CN": "回溯最近 {days} 天",
+  },
+  "daily.backfill.modal.title": {
+    en: "Backfill last {days} days",
+    "zh-CN": "回溯最近 {days} 天",
+  },
+  "daily.backfill.modal.body": {
+    en: "This will check each day from {days} days ago through today. For each day:\n\n• Daily Note doesn't exist → skip\n• Daily Note already has our marker region → skip (your previous Trakt data stays as-is)\n• Daily Note exists without markers → append a fresh marker region with that day's events to the END of the file\n\nYour existing Daily Note content outside our marker region is NEVER modified.",
+    "zh-CN": "将检查从 {days} 天前到今天的每一天。每个日期：\n\n• Daily Note 不存在 → 跳过\n• 已有我们的 marker 区间 → 跳过（之前的 Trakt 数据保持不变）\n• Daily Note 存在但没有 marker → 在文件**末尾**追加 marker 区间和当天事件\n\nmarker 区间之外的内容**永远不会**被修改。",
+  },
+  "daily.backfill.modal.confirm": { en: "Backfill", "zh-CN": "开始回溯" },
+  "daily.backfill.modal.cancel": { en: "Cancel", "zh-CN": "取消" },
+  "daily.backfill.done": {
+    en: "Backfilled {wrote} day(s); skipped {skipped} (missing file or already had markers).",
+    "zh-CN": "已回溯 {wrote} 天；跳过 {skipped} 天（文件缺失或已有 marker）。",
+  },
+  "daily.catchUpDone": {
+    en: "Daily Notes: today {todayMode}; {pastWrote} past day(s) filled, {pastSkipped} skipped.",
+    "zh-CN": "Daily Notes：今天 {todayMode}；过去 {pastWrote} 天已填入、{pastSkipped} 天跳过。",
+  },
+  "cmd.syncDailyNotesToday": {
+    en: "Sync to daily notes (today only)",
+    "zh-CN": "同步到 Daily Notes（仅今天）",
+  },
+
   // ── Authentication section ──
   "auth.heading": { en: "Authentication", "zh-CN": "认证" },
   "auth.clientId.name": {

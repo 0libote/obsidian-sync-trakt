@@ -162,6 +162,7 @@ export function stateFromEvents(
     knownEventIds: [],
     lastIncrementalSyncAt: "",
     lastFullRefreshAt: "",
+    lastDailyNoteSyncedAt: "",
   };
   // Reuse mergeHistoryEvents — it already handles all the dedup / sort logic
   // and pulls `lastIncrementalSyncAt` from the latest event.

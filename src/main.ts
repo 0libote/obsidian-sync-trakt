@@ -13,6 +13,13 @@ import { AuthModal } from "./trakt-auth";
 import { SyncEngine } from "./sync-engine";
 import { getTranslator, type UiLanguage } from "./i18n";
 import { clearTmdbCache } from "./tmdb-api";
+import type { NormalizedItem } from "./types";
+import {
+  processCatchUp,
+  processDate,
+  localTodayISODate,
+  type DailyNotesHost,
+} from "./daily-notes";
 
 /**
  * [0.4.0] The plugin's folder name changed from `obsidian-sync-trakt`
@@ -45,6 +52,13 @@ export default class TraktrPlugin extends Plugin {
    * localStorage at onload and mutated via setKeyIsLocal. See spec 0003.
    */
   localKeys: Set<LocalEligibleKey> = new Set();
+  /**
+   * [0.7.0] Cached map of merged items from the most recent sync.
+   * Used by the Daily Notes backfill button (which runs outside a
+   * sync context). Populated by SyncEngine.sync() right before
+   * reconcileType. Empty array on plugin startup before first sync.
+   */
+  lastMergedItems: NormalizedItem[] = [];
   private syncEngine!: SyncEngine;
   private autoSyncIntervalId: number | null = null;
   private statusBarEl: HTMLElement | null = null;
@@ -64,8 +78,35 @@ export default class TraktrPlugin extends Plugin {
     // and we're already running off the new folder's data.
     void this.cleanupLegacyBinaries();
 
-    this.syncEngine = new SyncEngine(this.app, this.settings, () =>
-      this.saveSettings(),
+    this.syncEngine = new SyncEngine(
+      this.app,
+      this.settings,
+      () => this.saveSettings(),
+      async (mergedItems) => {
+        // [0.7.0] After-sync hook — stash merged items for the
+        // settings-tab Backfill button, then run Daily Notes
+        // catch-up. Failures are swallowed inside SyncEngine.sync()
+        // so they never break the main sync result.
+        this.lastMergedItems = mergedItems;
+        if (this.settings.dailyNotesEnabled) {
+          const host: DailyNotesHost = {
+            app: this.app,
+            settings: this.settings,
+            saveSettings: () => this.saveSettings(),
+            getMergedItems: () => this.lastMergedItems,
+          };
+          const result = await processCatchUp(host);
+          const t = getTranslator(this.settings.uiLanguage);
+          new Notice(
+            t("daily.catchUpDone", {
+              todayMode: result.todayMode,
+              pastWrote: result.pastWrote,
+              pastSkipped: result.pastSkipped,
+            }),
+            6000,
+          );
+        }
+      },
     );
 
     // Settings tab
@@ -157,6 +198,38 @@ export default class TraktrPlugin extends Plugin {
         clearTmdbCache(this.settings.tmdbCache);
         await this.saveSettings();
         new Notice(tNow("tmdb.cache.clear.notice"));
+      },
+    });
+
+    // [0.7.0] Today-only manual refresh of Daily Notes. Useful when
+    // user wants to re-render today's entries without doing a full
+    // Trakt sync. NOT linked to the Backfill button (which is a more
+    // deliberate multi-day action and lives in settings only).
+    this.addCommand({
+      id: "trakt-sync-daily-notes-today",
+      name: t("cmd.syncDailyNotesToday"),
+      callback: async () => {
+        const tNow = getTranslator(this.settings.uiLanguage);
+        if (!this.settings.dailyNotesEnabled) {
+          new Notice("Daily notes integration is disabled.");
+          return;
+        }
+        const today = localTodayISODate();
+        const host: DailyNotesHost = {
+          app: this.app,
+          settings: this.settings,
+          saveSettings: () => this.saveSettings(),
+          getMergedItems: () => this.lastMergedItems,
+        };
+        const result = await processDate(host, today, "today");
+        new Notice(
+          tNow("daily.catchUpDone", {
+            todayMode: result.status,
+            pastWrote: 0,
+            pastSkipped: 0,
+          }),
+          6000,
+        );
       },
     });
 

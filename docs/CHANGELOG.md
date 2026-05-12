@@ -7,6 +7,106 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 0.7.0 — 2026-05-11
+
+**Daily Notes integration.** Auto-inserts per-event lines into your
+Daily Note for every sync — watched episodes, watchlist additions,
+favorites, ratings — chronologically sorted, in your chosen
+template language. Safe by design: never modifies content outside
+the marker region.
+
+### Added
+
+- **`src/daily-notes.ts`** — new module containing the catch-up
+  algorithm, event aggregation, marker handling, path computation,
+  verb translations. Pure logic, unit-tested.
+- **Daily Notes settings tab** with:
+  - Enable toggle (master)
+  - Folder + filename format (Moment.js)
+  - Customizable start/end marker strings
+  - Live preview of 3 sample events using current language
+  - Source events reference table (gated by sync source flags)
+  - Manual backfill slider (1-30 days) + confirmation modal
+- **6 new settings fields** with defaults (disabled by default —
+  user opts in via the tab)
+- **`historyState.lastDailyNoteSyncedAt`** cursor tracking, in
+  data.json (shared cross-device alongside `lastIncrementalSyncAt`)
+- **`Sync to daily notes (today only)` command** in Command Palette
+  for manual today-only refresh
+- **Confirmation modal** on Backfill button explaining the safety
+  rules in plain language before the user confirms
+- **Verb translations** in 11 languages matching spec 0007's
+  bundled template set
+- **52 new smoke tests** (cases 46-52): date helpers, marker
+  detection, block rendering, verb localization across all 11
+  languages, safety properties (replaceMarkerBlock + appendMarkerBlock
+  preserve outside content), event aggregation by source flag gating
+
+### Safety contract (the spec's most important property)
+
+> For every Daily Note file on disk, content outside the marker
+> region must be byte-for-byte identical before and after every
+> catch-up run. No exceptions.
+
+Enforced by:
+- `replaceMarkerBlock` only modifies `[startIdx, endIdx + markerEnd.length)`
+- `appendMarkerBlock` only adds to the end of existing content
+- 26 enumerated edge cases (spec 0006), all handled with "skip silently"
+  semantics on any ambiguity
+- File doesn't exist → never created
+- Past day with markers → never touched (add-only)
+- Today with markers → only the content between markers replaced
+
+### Catch-up algorithm
+
+Auto-runs at end of every sync (manual / scheduled / startup /
+command palette):
+
+1. **Always process today first** (overwrite mode) — ensures
+   newer events from later in the day appear when user re-syncs
+2. **Walk past days** from (cursor + 1) to (today - 1) in
+   add-only mode — first device fills, others see markers and skip
+3. **Cap at 90 days** if cursor is very stale (safety against
+   re-scanning hundreds of files)
+4. Advance cursor to today
+
+### Per-event-type sync flag gating
+
+Each event type only appears if its source sync is enabled:
+
+| Event | Required sync flag |
+|---|---|
+| Watched | Sync watch history (detailed) |
+| Added to watchlist | Sync watchlist |
+| Favorited | Sync favorites |
+| Rated | Sync ratings |
+
+### Backfill behavior
+
+Settings-only button (NOT in Command Palette — too easy to mis-fire).
+Walks last N days (1-30 configurable). Same add-only safety as
+catch-up: past days with markers are never modified. Today gets
+overwritten as usual.
+
+### Migration
+
+No migration. New `dailyNotesEnabled` defaults to `false`. Existing
+users on 0.6.x see nothing change until they go to the new Daily
+Notes tab and toggle it on. The new `lastDailyNoteSyncedAt` field in
+`historyState` initializes to `""` (empty) — first run with the
+feature enabled processes only today.
+
+### Note on the "don't edit between markers" warning
+
+After user feedback during spec review, the auto-inserted HTML
+comment warning inside the marker block was dropped — it cluttered
+edit mode. The warning now lives only in the settings UI (red banner
+under the marker config fields).
+
+See [spec 0006](specs/0006-daily-notes-integration.md) for full design.
+
+**Total tests: 339 (was 287). All passing.**
+
 ## 0.6.0 — 2026-05-11
 
 **Tabbed settings UI + 8 new bundled template languages.**

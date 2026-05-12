@@ -180,6 +180,11 @@ export interface HistoryState {
   knownEventIds: number[];
   lastIncrementalSyncAt: string;
   lastFullRefreshAt: string;
+  // [0.7.0] Daily Notes catch-up cursor — ISO date "YYYY-MM-DD" of the
+  // last day we successfully processed for Daily Notes integration.
+  // Empty string means "never run" (first sync after enabling).
+  // See spec 0006 §"Catch-up algorithm".
+  lastDailyNoteSyncedAt: string;
 }
 
 export const EMPTY_HISTORY_STATE: HistoryState = {
@@ -188,7 +193,34 @@ export const EMPTY_HISTORY_STATE: HistoryState = {
   knownEventIds: [],
   lastIncrementalSyncAt: "",
   lastFullRefreshAt: "",
+  lastDailyNoteSyncedAt: "",
 };
+
+/**
+ * [0.7.0] A single event rendered in a Daily Note — the unified shape
+ * across all 4 source types (watched / watchlist add / favorite / rate).
+ * See spec 0006 §"Event aggregation".
+ */
+export type DailyNoteEventAction =
+  | "watched"
+  | "added_to_watchlist"
+  | "favorited"
+  | "rated";
+
+export interface DailyNoteEvent {
+  /** ISO-8601 timestamp from the source event, preserved for sort stability. */
+  timestamp: string;
+  /** Local "HH:MM" derived from timestamp. */
+  localTime: string;
+  /** What kind of event happened. */
+  action: DailyNoteEventAction;
+  /** Resolved display text for {{display}} placeholder.
+   *  Movie: "Title (Year)". Show single ep: "Title (Year) S1E16".
+   *  Show merged: "Title (Year) S1E16, S1E17". */
+  display: string;
+  /** Only set for `rated` events. */
+  ratingValue?: number;
+}
 
 /**
  * Single TMDB cache entry. Stored under `settings.tmdbCache[key]` where

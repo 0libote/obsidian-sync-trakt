@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, Notice } from "obsidian";
+import { App, Modal, PluginSettingTab, Setting, Notice } from "obsidian";
 import type TraktrPlugin from "./main";
 import { getTranslator, type UiLanguage } from "./i18n";
 import {
@@ -8,6 +8,7 @@ import {
 } from "./types";
 import { clearTmdbCache, tmdbCacheStats, verifyTmdbApiKey } from "./tmdb-api";
 import { clearHistoryState, historyStateStats } from "./history-state";
+import { manualBackfill, renderPreview, type DailyNotesHost } from "./daily-notes";
 
 export const POSTER_SIZES = [
   "w92",
@@ -244,6 +245,17 @@ export interface TraktrSettings {
   // Periodic full refresh to catch deletions on Trakt's side that an
   // incremental fetch can't see. Default 7 days.
   historyFullRefreshIntervalDays: number;
+
+  // ── [0.7.0] Daily Notes integration ──
+  // Auto-inject per-event lines into the user's Daily Note for each
+  // sync. Safety contract: never modify content outside the marker
+  // region. See spec 0006 for full design + 26-row edge case matrix.
+  dailyNotesEnabled: boolean;
+  dailyNotesFolder: string;             // e.g. "Daily" or "01 Daily"
+  dailyNotesFilenameFormat: string;     // Moment.js, e.g. "YYYY-MM-DD"
+  dailyNotesMarkerStart: string;        // default: "%% trakt:daily:start %%"
+  dailyNotesMarkerEnd: string;          // default: "%% trakt:daily:end %%"
+  dailyNotesBackfillDays: number;       // 1..30 for manual button
 }
 
 export const DEFAULT_MOVIE_TEMPLATE_EN = `![poster]({{poster_url}})
@@ -1063,6 +1075,15 @@ export const DEFAULT_SETTINGS: TraktrSettings = {
   tmdbCacheTtlDays: 90,
   historyState: { ...EMPTY_HISTORY_STATE },
   historyFullRefreshIntervalDays: 7,
+
+  // [0.7.0] Daily Notes — disabled by default; user opts in via the
+  // Daily Notes tab. See spec 0006 §"Defaults".
+  dailyNotesEnabled: false,
+  dailyNotesFolder: "Daily",
+  dailyNotesFilenameFormat: "YYYY-MM-DD",
+  dailyNotesMarkerStart: "%% trakt:daily:start %%",
+  dailyNotesMarkerEnd: "%% trakt:daily:end %%",
+  dailyNotesBackfillDays: 7,
 };
 
 /**
@@ -1142,6 +1163,166 @@ export class TraktrSettingTab extends PluginSettingTab {
     });
   }
 
+  /**
+   * [0.7.0] Render the Daily Notes tab (spec 0006). Contains:
+   *   - Enable toggle
+   *   - Folder + filename format
+   *   - Marker start / end strings
+   *   - Live preview of 3 sample events
+   *   - Source events reference table
+   *   - Manual backfill slider + button (with confirmation modal)
+   */
+  private renderDailyNotesTab(
+    containerEl: HTMLElement,
+    t: ReturnType<typeof getTranslator>,
+  ): void {
+    new Setting(containerEl).setName(t("daily.heading")).setHeading();
+
+    new Setting(containerEl)
+      .setName(t("daily.enabled.name"))
+      .setDesc(t("daily.enabled.desc"))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.dailyNotesEnabled)
+          .onChange(async (value) => {
+            this.plugin.settings.dailyNotesEnabled = value;
+            await this.plugin.saveSettings();
+            this.display();
+          }),
+      );
+
+    if (!this.plugin.settings.dailyNotesEnabled) return;
+
+    new Setting(containerEl)
+      .setName(t("daily.folder.name"))
+      .setDesc(t("daily.folder.desc"))
+      .addText((text) =>
+        text
+          .setPlaceholder("Daily")
+          .setValue(this.plugin.settings.dailyNotesFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.dailyNotesFolder = value.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName(t("daily.format.name"))
+      .setDesc(t("daily.format.desc"))
+      .addText((text) =>
+        text
+          // Moment.js format token, not English text — sentence-case rule N/A
+          // eslint-disable-next-line obsidianmd/ui/sentence-case
+          .setPlaceholder("YYYY-MM-DD")
+          .setValue(this.plugin.settings.dailyNotesFilenameFormat)
+          .onChange(async (value) => {
+            this.plugin.settings.dailyNotesFilenameFormat = value.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName(t("daily.markerStart.name"))
+      .setDesc(t("daily.marker.desc"))
+      .addText((text) =>
+        text
+          .setPlaceholder("%% trakt:daily:start %%")
+          .setValue(this.plugin.settings.dailyNotesMarkerStart)
+          .onChange(async (value) => {
+            this.plugin.settings.dailyNotesMarkerStart = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName(t("daily.markerEnd.name"))
+      .addText((text) =>
+        text
+          .setPlaceholder("%% trakt:daily:end %%")
+          .setValue(this.plugin.settings.dailyNotesMarkerEnd)
+          .onChange(async (value) => {
+            this.plugin.settings.dailyNotesMarkerEnd = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    // Warning about not editing inside markers — stays in settings, never
+    // injected into Daily Note itself (per user feedback during spec review).
+    const warningEl = containerEl.createDiv({ cls: "trakt-daily-warning" });
+    warningEl.setText(t("daily.warning"));
+
+    // Live preview
+    new Setting(containerEl)
+      .setName(t("daily.preview.name"))
+      .setDesc(t("daily.preview.desc"));
+    const previewEl = containerEl.createDiv({ cls: "trakt-daily-preview" });
+    previewEl.setText(renderPreview(this.plugin.settings));
+
+    // Source events reference (static help text)
+    new Setting(containerEl).setName(t("daily.sources.heading")).setHeading();
+    new Setting(containerEl).setDesc(t("daily.sources.desc"));
+    const sourcesEl = containerEl.createDiv({ cls: "trakt-daily-sources" });
+    const sources = [
+      "daily.sources.watched",
+      "daily.sources.watchlist",
+      "daily.sources.favorites",
+      "daily.sources.ratings",
+    ] as const;
+    for (const key of sources) {
+      const line = sourcesEl.createEl("div");
+      line.setText("• " + t(key));
+    }
+
+    // Manual backfill — slider + button + modal
+    new Setting(containerEl).setName(t("daily.backfill.heading")).setHeading();
+
+    new Setting(containerEl)
+      .setName(t("daily.backfill.days.name"))
+      .setDesc(t("daily.backfill.days.desc"))
+      .addSlider((slider) =>
+        slider
+          .setLimits(1, 30, 1)
+          .setValue(this.plugin.settings.dailyNotesBackfillDays)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.dailyNotesBackfillDays = value;
+            await this.plugin.saveSettings();
+            this.display();
+          }),
+      );
+
+    new Setting(containerEl).addButton((btn) =>
+      btn
+        .setButtonText(
+          t("daily.backfill.button", {
+            days: this.plugin.settings.dailyNotesBackfillDays,
+          }),
+        )
+        .onClick(() => {
+          new BackfillConfirmModal(
+            this.plugin.app,
+            this.plugin.settings.dailyNotesBackfillDays,
+            t,
+            async () => {
+              const host: DailyNotesHost = {
+                app: this.plugin.app,
+                settings: this.plugin.settings,
+                saveSettings: () => this.plugin.saveSettings(),
+                // Backfill uses the in-memory state from the last sync run.
+                // Items collected when sync engine ran most recently.
+                getMergedItems: () => this.plugin.lastMergedItems ?? [],
+              };
+              const { wrote, skipped } = await manualBackfill(
+                host,
+                this.plugin.settings.dailyNotesBackfillDays,
+              );
+              new Notice(t("daily.backfill.done", { wrote, skipped }), 8000);
+            },
+          ).open();
+        }),
+    );
+  }
+
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
@@ -1157,11 +1338,7 @@ export class TraktrSettingTab extends PluginSettingTab {
     this.renderTabBar(containerEl);
 
     if (this.activeTab === "daily") {
-      // 0.6.0 placeholder; 0.7.0 will populate this tab properly
-      containerEl.createEl("p", {
-        cls: "trakt-daily-placeholder",
-        text: t("tabs.daily.placeholder"),
-      });
+      this.renderDailyNotesTab(containerEl, t);
       return;
     }
 
@@ -1921,5 +2098,62 @@ export class TraktrSettingTab extends PluginSettingTab {
           }),
       );
     }  // end of "general" tab — second half (Reset)
+  }
+}
+
+/**
+ * [0.7.0] Confirmation modal for the manual backfill button (spec 0006).
+ * Explains the safety rules in plain language before the user can
+ * confirm a potentially-disruptive operation.
+ */
+class BackfillConfirmModal extends Modal {
+  private days: number;
+  private translate: ReturnType<typeof getTranslator>;
+  private onConfirm: () => Promise<void>;
+
+  constructor(
+    app: App,
+    days: number,
+    translate: ReturnType<typeof getTranslator>,
+    onConfirm: () => Promise<void>,
+  ) {
+    super(app);
+    this.days = days;
+    this.translate = translate;
+    this.onConfirm = onConfirm;
+  }
+
+  onOpen(): void {
+    const { contentEl, titleEl } = this;
+    titleEl.setText(this.translate("daily.backfill.modal.title", { days: this.days }));
+
+    // Multi-line body — split on \n so each paragraph renders separately
+    const body = this.translate("daily.backfill.modal.body", { days: this.days });
+    for (const para of body.split("\n")) {
+      if (para.trim() === "") {
+        contentEl.createEl("br");
+      } else {
+        contentEl.createEl("p", { text: para });
+      }
+    }
+
+    const btnContainer = contentEl.createDiv({ cls: "trakt-modal-buttons" });
+    const cancelBtn = btnContainer.createEl("button", {
+      text: this.translate("daily.backfill.modal.cancel"),
+    });
+    cancelBtn.onclick = () => this.close();
+
+    const confirmBtn = btnContainer.createEl("button", {
+      text: this.translate("daily.backfill.modal.confirm"),
+      cls: "mod-cta",
+    });
+    confirmBtn.onclick = async () => {
+      this.close();
+      await this.onConfirm();
+    };
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
   }
 }

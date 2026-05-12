@@ -326,15 +326,24 @@ export class SyncEngine {
   private settings: TraktrSettings;
   private saveSettings: () => Promise<void>;
   private syncing = false;
+  /**
+   * [0.7.0] Optional callback fired AFTER reconcileType and saveSettings,
+   * with the merged items as input. The plugin uses this hook to run
+   * Daily Notes catch-up (spec 0006) without coupling the engine to
+   * Daily Notes itself.
+   */
+  private onAfterSync?: (items: NormalizedItem[]) => Promise<void>;
 
   constructor(
     app: App,
     settings: TraktrSettings,
-    saveSettings: () => Promise<void>
+    saveSettings: () => Promise<void>,
+    onAfterSync?: (items: NormalizedItem[]) => Promise<void>,
   ) {
     this.app = app;
     this.settings = settings;
     this.saveSettings = saveSettings;
+    this.onAfterSync = onAfterSync;
   }
 
   async sync(
@@ -395,6 +404,16 @@ export class SyncEngine {
       // 7. Persist any state mutations (TMDB cache writes, history state
       //    updates) so they survive across sessions and across devices.
       await this.saveSettings();
+
+      // 7.5 — [0.7.0] Daily Notes catch-up. Side effect: must not roll
+      // back the main sync result if it fails. See spec 0006.
+      if (this.onAfterSync) {
+        try {
+          await this.onAfterSync([...merged.values()]);
+        } catch (e) {
+          console.warn("[Traktr] Daily Notes catch-up failed (non-fatal):", e);
+        }
+      }
 
       // 8. Show result
       console.debug(`[Traktr] Sync complete — added: ${result.added}, updated: ${result.updated}, unchanged: ${result.unchanged}, removed: ${result.removed}, failed: ${result.failed}`);
