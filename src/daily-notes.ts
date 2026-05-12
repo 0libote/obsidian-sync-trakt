@@ -121,6 +121,29 @@ export function isMarkerRegionValid(
 }
 
 /**
+ * Returns true if the region between a valid marker pair contains only
+ * whitespace. Returns false if markers are missing/invalid OR the region
+ * has any non-whitespace content.
+ *
+ * [0.7.2] Used by past-day catch-up + backfill to distinguish two cases:
+ *   - empty marker pair (e.g. injected by a Daily Note template) → fill it
+ *   - marker pair with real content → preserve it (existing safety)
+ * Without this, any Daily Note template that pre-seeds the markers would
+ * make past-day backfill a no-op for those notes.
+ */
+export function isMarkerRegionEmpty(
+  content: string,
+  markerStart: string,
+  markerEnd: string,
+): boolean {
+  if (!isMarkerRegionValid(content, markerStart, markerEnd)) return false;
+  const startIdx = content.indexOf(markerStart);
+  const endIdx = content.indexOf(markerEnd, startIdx + markerStart.length);
+  const inner = content.slice(startIdx + markerStart.length, endIdx);
+  return inner.trim().length === 0;
+}
+
+/**
  * Replace the content between the first valid marker pair with `block`.
  * Caller MUST have already verified validity via isMarkerRegionValid.
  *
@@ -444,7 +467,19 @@ export async function processDate(
   );
 
   if (mode === "past") {
-    if (hasMarkers) return { status: "skipped_has_markers" };
+    // [0.7.2] Empty marker pair (e.g. injected by a Daily Note template)
+    // should be filled, not skipped. Only skip when the region already
+    // has real content — that's what the safety contract protects.
+    if (
+      hasMarkers &&
+      !isMarkerRegionEmpty(
+        content,
+        settings.dailyNotesMarkerStart,
+        settings.dailyNotesMarkerEnd,
+      )
+    ) {
+      return { status: "skipped_has_markers" };
+    }
     const events = aggregateEventsForDate(date, host.getMergedItems(), settings);
     if (events.length === 0) return { status: "skipped_no_file" };
     const lang = getEffectiveTemplateLanguage(settings);
@@ -454,7 +489,20 @@ export async function processDate(
       settings.dailyNotesMarkerEnd,
       lang,
     );
-    await app.vault.process(file, (old) => appendMarkerBlock(old, block));
+    if (hasMarkers) {
+      // Empty region present — replace in place so we don't end up with
+      // a duplicate marker pair below the original.
+      await app.vault.process(file, (old) =>
+        replaceMarkerBlock(
+          old,
+          settings.dailyNotesMarkerStart,
+          settings.dailyNotesMarkerEnd,
+          block,
+        ),
+      );
+    } else {
+      await app.vault.process(file, (old) => appendMarkerBlock(old, block));
+    }
     return { status: "wrote_new" };
   }
 

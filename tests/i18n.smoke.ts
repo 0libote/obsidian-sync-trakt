@@ -54,6 +54,7 @@ import {
   addDaysISO,
   daysBetweenISO,
   isMarkerRegionValid,
+  isMarkerRegionEmpty,
   replaceMarkerBlock,
   appendMarkerBlock,
   renderVerb,
@@ -2549,6 +2550,61 @@ void (async () => {
       renderVerb("watched", "JA-JP"),
       renderVerb("watched", "ja-JP"),
       "upper-case locale resolves same as lower-case (case-insensitive)",
+    );
+  }
+
+  // ── Test 56: [0.7.2] empty marker pair detection ────────────────────
+  // Bug: a Daily Note template that pre-injects `%% start %%\n%% end %%`
+  // into freshly created past-day notes would short-circuit past-day
+  // backfill — the "hasMarkers" guard treated the empty pair as already
+  // filled. isMarkerRegionEmpty lets the past branch distinguish the
+  // empty-template case (fill) from real user content (preserve).
+
+  console.log("\n[56] isMarkerRegionEmpty — distinguish empty from filled regions");
+  {
+    const start = "%% trakt:daily:start %%";
+    const end = "%% trakt:daily:end %%";
+
+    // True: empty inner region (just whitespace/newlines)
+    assertTrue(
+      isMarkerRegionEmpty(`${start}\n${end}`, start, end),
+      "newline-only between markers → empty",
+    );
+    assertTrue(
+      isMarkerRegionEmpty(`${start}${end}`, start, end),
+      "no characters between markers → empty",
+    );
+    assertTrue(
+      isMarkerRegionEmpty(`${start}\n  \n\t\n${end}`, start, end),
+      "whitespace-only between markers → empty",
+    );
+    assertTrue(
+      isMarkerRegionEmpty(
+        `# Heading\n\n${start}\n${end}\n\nMore content`,
+        start,
+        end,
+      ),
+      "empty pair surrounded by other content → still empty",
+    );
+
+    // False: real content between markers
+    assertTrue(
+      !isMarkerRegionEmpty(`${start}\nfoo\n${end}`, start, end),
+      "non-whitespace content → not empty",
+    );
+    assertTrue(
+      !isMarkerRegionEmpty(`${start}\n10:00 — watched X\n${end}`, start, end),
+      "real event line → not empty",
+    );
+
+    // False: missing markers (caller can't fill what doesn't exist)
+    assertTrue(
+      !isMarkerRegionEmpty("no markers here", start, end),
+      "no markers → not empty (signals 'nothing to fill in place')",
+    );
+    assertTrue(
+      !isMarkerRegionEmpty(`only ${start} no end`, start, end),
+      "missing end marker → not empty (treat as no region)",
     );
   }
 
