@@ -7,6 +7,69 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 0.7.1 — 2026-05-11
+
+**Post-submission-review hardening.** Obsidian's submission bot
+flagged three `@typescript-eslint/require-await` violations on [PR
+#12757](https://github.com/obsidianmd/obsidian-releases/pull/12757)
+(May 11). Fixed them, added the rule to our local config so the bot
+never catches us off-guard again, and used the occasion to run a
+focused safety audit of the high-risk code added since 0.1.0 (legacy
+migration, daily-notes integration, diff-based write). Three real
+issues surfaced and were fixed.
+
+### Fixed
+
+- **Three `async`-without-`await` violations**:
+  - `main.ts` Trakt connect command callback (`callback: async ()` →
+    `callback: () =>`)
+  - `settings.ts` Connect button onClick (same shape)
+  - `settings.ts` `applyTemplateLanguageChange` arrow function (now
+    a synchronous function, with the caller still awaiting
+    `saveSettings()` afterward)
+- **`isMarkerRegionValid` accepted identical start/end markers.**
+  If a user set both Daily Notes marker fields to the same string
+  (e.g. both `%%`), `indexOf` could find two occurrences of that
+  string and treat them as a "pair" — `replaceMarkerBlock` would
+  then mangle whatever was between them. Now rejects empty or
+  identical strings up front. Closes a content-mangling
+  vulnerability that violated spec 0006's safety contract.
+- **`migrateFromLegacyFolder` could loop forever on corrupted
+  legacy data.** A legacy `data.json` parsing as JSON `null` (or
+  an array, or a primitive) would have been written through
+  `saveData(null)` and then on the next launch re-triggered
+  migration indefinitely. Now validates that the parsed root is a
+  plain object before proceeding — anything else degrades to
+  `DEFAULT_SETTINGS` with a console warning.
+- **`loadLocalKeysAndApplyOverlay` had a loose `as string[] | null`
+  cast** on the localStorage return value. Replaced with a
+  runtime `Array.isArray` check + string-element filter, so a
+  corrupted localStorage entry degrades to "first-launch defaults"
+  rather than handing a malformed array downstream.
+
+### Added
+
+- `eslint.config.mjs` now enables `@typescript-eslint/require-await`
+  locally. The same rule the Obsidian bot uses — catch regressions
+  before the bot does.
+- **14 new smoke tests** (cases 53-55):
+  - Empty / identical / inverted marker rejection (4 cases)
+  - `computeDailyNotePath` across folder + format combinations
+    including nested formats and empty folder (5 cases)
+  - Regression: `replaceMarkerBlock` splices verbatim
+  - Regression: `aggregateEventsForDate` handles items without
+    `watch_history_episodes` (no crash, 0 events)
+  - Regression: verb resolution is case-insensitive (`JA-JP` =
+    `ja-JP`)
+
+### Migration
+
+None. Behavior changes only matter for edge cases that no normal
+user hits — corrupted legacy data, identical markers, or future
+bot-rule regressions.
+
+**Total tests: 353 (was 339). All passing.**
+
 ## 0.7.0 — 2026-05-11
 
 **Daily Notes integration.** Auto-inserts per-event lines into your

@@ -145,7 +145,7 @@ export default class TraktrPlugin extends Plugin {
     this.addCommand({
       id: "trakt-connect",
       name: t("cmd.connect"),
-      callback: async () => {
+      callback: () => {
         const tNow = getTranslator(this.settings.uiLanguage);
         if (!this.settings.clientId || !this.settings.clientSecret) {
           new Notice(tNow("notice.needCredentials"));
@@ -315,12 +315,18 @@ export default class TraktrPlugin extends Plugin {
    */
   private loadLocalKeysAndApplyOverlay(): void {
     const eligible = new Set<string>(LOCAL_ELIGIBLE_KEYS);
-    const raw = this.app.loadLocalStorage(LOCAL_KEYS_STORAGE_KEY) as
-      | string[]
-      | null;
+    // [0.7.1] Runtime-validate the stored value instead of casting blindly.
+    // app.loadLocalStorage returns `any | null` and we'd rather degrade
+    // to "first launch" defaults than hand a corrupted array downstream.
+    const rawUnknown: unknown = this.app.loadLocalStorage(
+      LOCAL_KEYS_STORAGE_KEY,
+    );
+    const raw: string[] | null = Array.isArray(rawUnknown)
+      ? rawUnknown.filter((v): v is string => typeof v === "string")
+      : null;
 
     let localKeys: LocalEligibleKey[];
-    if (raw === null || raw === undefined) {
+    if (raw === null) {
       // First 0.5.0 launch on this device — seed defaults and migrate the
       // current data.json value for each into localStorage so the user's
       // current state is preserved when we start excluding these from
@@ -412,14 +418,34 @@ export default class TraktrPlugin extends Plugin {
       if (!exists) return null;
 
       const raw = await this.app.vault.adapter.read(legacyPath);
-      const parsed = JSON.parse(raw) as Partial<TraktrSettings>;
+      const parsed: unknown = JSON.parse(raw);
+
+      // [0.7.1] Validate the parsed value is a plain object before
+      // treating it as TraktrSettings. JSON.parse can return null, an
+      // array, a primitive, etc. — none of which are safe to feed into
+      // saveData() / Object.assign() downstream. A corrupted legacy
+      // data.json that parses to e.g. `null` would otherwise loop the
+      // migration on every launch (we'd write null, next load returns
+      // null, migration sees null, repeat). Reject and degrade to
+      // DEFAULT_SETTINGS instead.
+      if (
+        parsed === null ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed)
+      ) {
+        console.warn(
+          "[Traktr] Legacy data.json contains non-object root; skipping migration.",
+        );
+        return null;
+      }
+      const settings = parsed as Partial<TraktrSettings>;
 
       // Write to the new folder via the standard plugin API.
-      await this.saveData(parsed);
+      await this.saveData(settings);
 
       // Surface the migration so the user knows what just happened.
       // Translates to the user's saved UI language if available.
-      const lang: UiLanguage = parsed.uiLanguage ?? "en";
+      const lang: UiLanguage = settings.uiLanguage ?? "en";
       new Notice(
         getTranslator(lang)("notice.migratedFromLegacyFolder"),
         8000,
@@ -428,7 +454,7 @@ export default class TraktrPlugin extends Plugin {
         `[Traktr] Migrated data.json from .obsidian/plugins/${LEGACY_PLUGIN_ID}/ ` +
           `→ .obsidian/plugins/sync-trakt/. Binary files in the legacy folder will be cleaned up on this launch; data.json is preserved as a recovery safety net.`,
       );
-      return parsed;
+      return settings;
     } catch (e) {
       console.warn(
         "[Traktr] Legacy-folder migration failed; continuing with defaults:",

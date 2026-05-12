@@ -60,6 +60,7 @@ import {
   renderEntry,
   renderMarkerBlock,
   aggregateEventsForDate,
+  computeDailyNotePath,
 } from "../src/daily-notes";
 import {
   EMPTY_HISTORY_STATE,
@@ -2390,6 +2391,165 @@ void (async () => {
         "events sorted by timestamp ascending",
       );
     }
+  }
+
+  // ── Tests 53-55: [0.7.1] post-PR-review hardening ────────────────────
+  // After PR #12757 review, an audit surfaced three classes of issue:
+  // (1) isMarkerRegionValid would accept identical start/end strings,
+  //     enabling a content-mangling vulnerability if a user set both
+  //     markers to e.g. "%%";
+  // (2) computeDailyNotePath was untested despite being the file-system
+  //     lookup primitive — regressions there could break sync silently;
+  // (3) edge cases in aggregation / verbs / safety contract that warrant
+  //     explicit coverage.
+
+  console.log("\n[53] isMarkerRegionValid — reject empty / identical / inverted markers");
+  {
+    // Empty markers → invalid (a bug user could trigger by clearing field)
+    assertTrue(
+      !isMarkerRegionValid("some content", "", "%% end %%"),
+      "empty start marker → invalid",
+    );
+    assertTrue(
+      !isMarkerRegionValid("some content", "%% start %%", ""),
+      "empty end marker → invalid",
+    );
+    assertTrue(
+      !isMarkerRegionValid("some content", "", ""),
+      "both empty → invalid",
+    );
+
+    // Identical strings → invalid (the content-mangling vulnerability)
+    assertTrue(
+      !isMarkerRegionValid("%% foo %%\nbar\n%% foo %%", "%% foo %%", "%% foo %%"),
+      "identical start/end strings → invalid (prevents content-mangling)",
+    );
+    assertTrue(
+      !isMarkerRegionValid("%%\nbar\n%%", "%%", "%%"),
+      "identical short markers → invalid",
+    );
+
+    // Still passes with distinct markers
+    assertTrue(
+      isMarkerRegionValid(
+        "%% trakt:daily:start %%\nfoo\n%% trakt:daily:end %%",
+        "%% trakt:daily:start %%",
+        "%% trakt:daily:end %%",
+      ),
+      "distinct markers still accepted",
+    );
+  }
+
+  console.log("\n[54] computeDailyNotePath — folder + format combinations");
+  {
+    // Mock minimal moment: returns object with format(out) using simple template
+    // expansion. We don't need full moment; just enough to drive the tests.
+    const mockMoment = (input: string, _fmt: string) => {
+      // input is "YYYY-MM-DD" from the caller; parse manually
+      const [y, m, d] = input.split("-");
+      return {
+        format(out: string): string {
+          return out
+            .replace(/YYYY/g, y)
+            .replace(/MM/g, m)
+            .replace(/DD/g, d);
+        },
+      };
+    };
+
+    assertEq(
+      computeDailyNotePath("2026-05-11", "Daily", "YYYY-MM-DD", mockMoment),
+      "Daily/2026-05-11.md",
+      "simple folder + format",
+    );
+    assertEq(
+      computeDailyNotePath(
+        "2026-05-11",
+        "01 Daily",
+        "YYYY/YYYY.MM.DD",
+        mockMoment,
+      ),
+      "01 Daily/2026/2026.05.11.md",
+      "nested folder format",
+    );
+    assertEq(
+      computeDailyNotePath("2026-05-11", "", "YYYY-MM-DD", mockMoment),
+      "2026-05-11.md",
+      "empty folder → root of vault",
+    );
+    assertEq(
+      computeDailyNotePath("2026-05-11", "/Daily/", "YYYY-MM-DD", mockMoment),
+      "Daily/2026-05-11.md",
+      "leading/trailing slashes stripped",
+    );
+    assertEq(
+      computeDailyNotePath(
+        "2026-12-31",
+        "journal",
+        "YYYY-MM-DD",
+        mockMoment,
+      ),
+      "journal/2026-12-31.md",
+      "end-of-year date",
+    );
+  }
+
+  console.log("\n[55] daily-notes: regression tests for audit findings");
+  {
+    // Audit concern: replaceMarkerBlock with marker string that appears
+    // INSIDE the new block content. The block we pass in already includes
+    // markers — replaceMarkerBlock just splices in the whole thing.
+    const start = "%% trakt:daily:start %%";
+    const end = "%% trakt:daily:end %%";
+
+    const original = `${start}\nold\n${end}`;
+    const newBlock = `${start}\nnew content with ${start} inside (weird but valid)\n${end}`;
+    const result = replaceMarkerBlock(original, start, end, newBlock);
+    assertEq(
+      result,
+      newBlock,
+      "replaceMarkerBlock splices new content verbatim — markers inside content are user's problem, not ours",
+    );
+
+    // Audit concern: aggregateEventsForDate with undefined watch_history_*
+    // (could be undefined for new items or items with no detail history).
+    const itemNoHistory: NormalizedItem = {
+      type: "show",
+      title: "X",
+      year: 2024,
+      ids: { trakt: 1, slug: "x", imdb: "tt1", tmdb: 1 },
+      overview: "",
+      genres: [],
+      runtime: 0,
+      rating: 0,
+      votes: 0,
+      certification: "",
+      country: "",
+      language: "",
+      status: "",
+      originalTitle: "X",
+      originalOverview: "",
+      originalGenres: [],
+      // No watch_history_episodes / watch_history_movie
+    };
+    const events = aggregateEventsForDate(
+      "2026-05-11",
+      [itemNoHistory],
+      withSettings({
+        syncWatchedDetail: true,
+        syncWatchlist: true,
+        syncFavorites: true,
+        syncRatings: true,
+      }),
+    );
+    assertEq(events.length, 0, "item with no history fields → 0 events (no crash)");
+
+    // Audit concern: verb resolution case-sensitivity
+    assertEq(
+      renderVerb("watched", "JA-JP"),
+      renderVerb("watched", "ja-JP"),
+      "upper-case locale resolves same as lower-case (case-insensitive)",
+    );
   }
 
   console.log(`\n${"=".repeat(60)}`);

@@ -1397,7 +1397,7 @@ export class TraktrSettingTab extends PluginSettingTab {
         btn
           .setButtonText(t("auth.connection.connect"))
           .setCta()
-          .onClick(async () => {
+          .onClick(() => {
             if (
               !this.plugin.settings.clientId ||
               !this.plugin.settings.clientSecret
@@ -1642,7 +1642,7 @@ export class TraktrSettingTab extends PluginSettingTab {
       ? this.plugin.settings.templateLanguage
       : "";
 
-    const applyTemplateLanguageChange = async (newLang: string) => {
+    const applyTemplateLanguageChange = (newLang: string): void => {
       // Only rewrite a saved template when it still matches one of the
       // bundled defaults — i.e. the user hasn't customized it.
       const movieDefault = getDefaultMovieTemplate(newLang);
@@ -1667,7 +1667,7 @@ export class TraktrSettingTab extends PluginSettingTab {
         dd.setValue(tplDropdownValue);
         dd.onChange(async (value) => {
           this.plugin.settings.templateLanguage = value;
-          await applyTemplateLanguageChange(value);
+          applyTemplateLanguageChange(value);
           await this.plugin.saveSettings();
           this.display();
         });

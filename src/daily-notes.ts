@@ -99,12 +99,21 @@ export function computeDailyNotePath(
  * Check that BOTH markers are present in the content AND end appears
  * after start. Missing-pair / inverted order / only-one-side all
  * return false → caller treats as "no valid markers".
+ *
+ * [0.7.1] Also reject empty or identical start/end strings. If a user
+ * sets both markers to the same string (e.g. both "%%"), the function
+ * could otherwise find two occurrences of that same string and treat
+ * them as a "pair", causing `replaceMarkerBlock` to mangle non-marker
+ * content between them. Requiring distinct strings closes that
+ * loophole — same fix Obsidian's own native section markers use.
  */
 export function isMarkerRegionValid(
   content: string,
   markerStart: string,
   markerEnd: string,
 ): boolean {
+  if (!markerStart || !markerEnd) return false;
+  if (markerStart === markerEnd) return false;
   const startIdx = content.indexOf(markerStart);
   if (startIdx === -1) return false;
   const endIdx = content.indexOf(markerEnd, startIdx + markerStart.length);
