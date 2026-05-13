@@ -59,6 +59,7 @@ import {
   replaceMarkerBlock,
   appendMarkerBlock,
   mergeMarkerBlockIncremental,
+  renderPreview,
   renderVerb,
   renderEntry,
   renderMarkerBlock,
@@ -3184,6 +3185,65 @@ void (async () => {
     assertTrue(isVersionNewer("1.0.0", ""), "empty 'never-seen' is lower than any version");
     assertTrue(!isVersionNewer("", "1.0.0"), "empty NOT > any version");
     assertTrue(!isVersionNewer("", ""), "empty NOT > empty");
+  }
+
+  // ── Test 65a: [1.0.0] renderPreview follows template language + fallback ─
+  // Locks the fix from "fix(1.0.0): Daily Notes preview now follows template
+  // language" — preview must reflect what real Daily Notes will look like
+  // (templateLanguage), and unsupported / custom codes must fall back to
+  // English instead of crashing or rendering with empty verbs.
+
+  console.log("\n[65a] renderPreview — templateLanguage drives output, en fallback works");
+  {
+    // Supported template language → preview in that language
+    const zhCn = renderPreview(withSettings({ templateLanguage: "zh-CN" }));
+    assertTrue(
+      zhCn.includes("看了"),
+      "templateLanguage=zh-CN → preview uses zh-CN verbs (看了)",
+    );
+    assertTrue(
+      !zhCn.includes("watched"),
+      "templateLanguage=zh-CN → preview does NOT mix in English",
+    );
+
+    const ja = renderPreview(withSettings({ templateLanguage: "ja-JP" }));
+    assertTrue(ja.includes("視聴"), "templateLanguage=ja-JP → 視聴");
+
+    // Alias falls through to its mapped target
+    const zhHk = renderPreview(withSettings({ templateLanguage: "zh-HK" }));
+    assertTrue(
+      zhHk.includes("看了"),
+      "templateLanguage=zh-HK → alias to zh-TW → 看了",
+    );
+
+    // Unsupported / custom code → English fallback
+    const tr = renderPreview(
+      withSettings({
+        templateLanguage: "custom",
+        customTemplateLanguage: "tr-TR",
+      }),
+    );
+    assertTrue(
+      tr.includes("watched") && tr.includes("added to watchlist") && tr.includes("rated"),
+      "custom unsupported code (tr-TR) → English verbs",
+    );
+
+    // Empty template language → English fallback
+    const empty = renderPreview(withSettings({ templateLanguage: "" }));
+    assertTrue(
+      empty.includes("watched") && empty.includes("rated"),
+      "empty templateLanguage → English verbs",
+    );
+
+    // templateLanguage is independent of uiLanguage — setting uiLanguage
+    // alone does NOT change preview language
+    const uiEnTemplateZh = renderPreview(
+      withSettings({ uiLanguage: "en", templateLanguage: "zh-CN" }),
+    );
+    assertTrue(
+      uiEnTemplateZh.includes("看了"),
+      "uiLanguage=en + templateLanguage=zh-CN → preview still in zh-CN (template wins)",
+    );
   }
 
   console.log("\n[65] entriesNewerThan — filter to unseen versions");
