@@ -1219,10 +1219,13 @@ export class TraktrSettingTab extends PluginSettingTab {
       .setName(t("daily.format.name"))
       .setDesc(t("daily.format.desc"))
       .addText((text) =>
+        // [0.8.1] No placeholder — the description already shows
+        // YYYY-MM-DD as the canonical example, and the field is
+        // pre-filled with the default format, so the placeholder
+        // rarely surfaces. Avoids tripping the sentence-case lint
+        // rule (which we're not allowed to disable per Obsidian's
+        // directory submission rules).
         text
-          // Moment.js format token, not English text — sentence-case rule N/A
-          // eslint-disable-next-line obsidianmd/ui/sentence-case
-          .setPlaceholder("YYYY-MM-DD")
           .setValue(this.plugin.settings.dailyNotesFilenameFormat)
           .onChange(async (value) => {
             this.plugin.settings.dailyNotesFilenameFormat = value.trim();

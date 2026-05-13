@@ -124,8 +124,12 @@ export default class TraktrPlugin extends Plugin {
     // data.json to iPhone; if the iPhone plugin only read data.json once
     // at onload(), the new state would be invisible until reload. This
     // catches the user-returns-to-app event and pulls fresh state.
-    this.registerDomEvent(document, "visibilitychange", () => {
-      if (document.visibilityState === "visible") {
+    //
+    // [0.8.1] Use `activeDocument` (Obsidian global) instead of `document`
+    // so popout windows are handled correctly. Obsidian's directory bot
+    // flags `document` usage as not-popout-safe.
+    this.registerDomEvent(activeDocument, "visibilitychange", () => {
+      if (activeDocument.visibilityState === "visible") {
         void this.refreshSettingsFromDisk();
       }
     });

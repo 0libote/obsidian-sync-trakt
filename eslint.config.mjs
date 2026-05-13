@@ -14,6 +14,8 @@ export default defineConfig([
         window: "readonly",
         navigator: "readonly",
         document: "readonly",
+        // [0.8.1] Obsidian global — popout-safe replacement for `document`.
+        activeDocument: "readonly",
         setTimeout: "readonly",
       },
     },

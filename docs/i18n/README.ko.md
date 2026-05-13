@@ -3,7 +3,7 @@
 [![Latest release](https://img.shields.io/github/v/release/o1xhack/obsidian-sync-trakt?include_prereleases&label=release&color=7c3aed)](https://github.com/o1xhack/obsidian-sync-trakt/releases)
 [![Total downloads](https://img.shields.io/github/downloads/o1xhack/obsidian-sync-trakt/total?color=7c3aed)](https://github.com/o1xhack/obsidian-sync-trakt/releases)
 [![License](https://img.shields.io/github/license/o1xhack/obsidian-sync-trakt?color=7c3aed)](../../LICENSE)
-[![Min Obsidian version](https://img.shields.io/badge/obsidian-1.4.0%2B-7c3aed)](https://obsidian.md)
+[![Min Obsidian version](https://img.shields.io/badge/obsidian-1.8.7%2B-7c3aed)](https://obsidian.md)
 
 **[Trakt.tv](https://trakt.tv) 시청 기록을 풍부하게 현지화된 마크다운 라이브러리로 변환합니다 — 에피소드별 타임스탬프, 15개 이상 언어를 지원하는 메타데이터, 그리고 vault를 흔들지 않는 조용한 증분 동기화.**
 
