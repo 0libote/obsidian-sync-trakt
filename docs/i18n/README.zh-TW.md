@@ -102,9 +102,9 @@ trakt_metadata_language: zh-TW
 
 ## 🚀 快速開始
 
-1. 透過 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 安裝 → **Add a beta plugin for testing** → `o1xhack/obsidian-sync-trakt`
+1. 設定 → 第三方外掛 → **瀏覽** → 搜尋 **Sync Trakt** → **安裝** → **啟用**
 2. 設定 → **Sync Trakt** → 填 Trakt + TMDB API key（[設定指南](SETUP.zh-TW.md)）
-3. 命令面板 → **Traktr: Sync**
+3. 命令面板 → **Sync Trakt: Sync**
 
 ## 🔑 API key 各自解鎖什麼
 
@@ -124,41 +124,19 @@ trakt_metadata_language: zh-TW
 
 ## 📦 安裝
 
-<details>
-<summary><b>BRAT（推薦）</b></summary>
+<details open>
+<summary><b>Obsidian 第三方外掛市集（推薦）</b></summary>
 
-[BRAT](https://github.com/TfTHacker/obsidian42-brat) 讓 Obsidian 可以從任意 GitHub 倉庫直接安裝並自動更新外掛。
+1. 設定 → 第三方外掛 → **瀏覽**
+2. 搜尋 **Sync Trakt**
+3. 點 **安裝** → **啟用**
 
-1. 在第三方外掛裡安裝並啟用 **Obsidian42 - BRAT**
-2. 設定 → BRAT → **Add a beta plugin for testing**
-3. 貼上：
-   ```
-   o1xhack/obsidian-sync-trakt
-   ```
-4. 點 **Add Plugin** → 在第三方外掛裡啟用
-
-之後每次 Obsidian 啟動 BRAT 會自動檢查更新並拉取新 release。
+外掛目錄頁：https://community.obsidian.md/plugins/sync-trakt
 
 </details>
 
 <details>
-<summary><b>手動安裝</b></summary>
-
-1. 從 [Releases](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest) 下載 `main.js`、`manifest.json`、`styles.css`
-2. 把三個檔案放到 `<你的-vault>/.obsidian/plugins/obsidian-sync-trakt/`
-3. 設定 → 第三方外掛 → 啟用 **Sync Trakt**
-
-</details>
-
-<details>
-<summary><b>Obsidian 第三方外掛市集（待提交）</b></summary>
-
-> ⚠️ 尚未上架 Obsidian 官方第三方外掛目錄。等被收錄後這條會變成推薦路徑。在那之前請用上方的 BRAT。
-
-</details>
-
-<details>
-<summary><b>從原始碼建構</b></summary>
+<summary><b>開發模式（從原始碼建構）</b></summary>
 
 ```bash
 git clone https://github.com/o1xhack/obsidian-sync-trakt.git
@@ -169,7 +147,16 @@ npm run lint
 npm run test:i18n  # 跑煙霧測試
 ```
 
-然後把 `main.js`、`manifest.json`、`styles.css` 複製到 `<vault>/.obsidian/plugins/obsidian-sync-trakt/`。
+然後把 `main.js`、`manifest.json`、`styles.css` 複製到 `<vault>/.obsidian/plugins/sync-trakt/`。
+
+</details>
+
+<details>
+<summary><b>本地測試（手動安裝）</b></summary>
+
+1. 從 [Releases](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest) 下載 `main.js`、`manifest.json`、`styles.css`
+2. 把三個檔案放到 `<你的-vault>/.obsidian/plugins/sync-trakt/`
+3. 設定 → 第三方外掛 → 啟用 **Sync Trakt**
 
 </details>
 

@@ -102,9 +102,9 @@ Filtere nach `trakt_type = "movie"` / `"show"`, sortiere nach `trakt_year` / `tr
 
 ## 🚀 Schnellstart
 
-1. Installiere über [BRAT](https://github.com/TfTHacker/obsidian42-brat) → **Add a beta plugin for testing** → `o1xhack/obsidian-sync-trakt`
+1. Einstellungen → Community plugins → **Durchsuchen** → suche nach **Sync Trakt** → **Installieren** → **Aktivieren**
 2. Einstellungen → **Sync Trakt** → trage deine Trakt + TMDB API-Schlüssel ein ([SETUP-Anleitung](../SETUP.md))
-3. Befehlspalette → **Traktr: Sync**
+3. Befehlspalette → **Sync Trakt: Sync**
 
 ## 🔑 API-Schlüssel: was jeder freischaltet
 
@@ -124,41 +124,19 @@ Wenn dir englische Inhalte ohne Poster reichen, lass TMDB leer — Trakt allein 
 
 ## 📦 Installation
 
-<details>
-<summary><b>BRAT (empfohlen)</b></summary>
+<details open>
+<summary><b>Obsidian Community Plugins (empfohlen)</b></summary>
 
-[BRAT](https://github.com/TfTHacker/obsidian42-brat) installiert und aktualisiert Plugins automatisch von beliebigen GitHub-Repositories.
+1. Einstellungen → Community plugins → **Durchsuchen**
+2. Suche nach **Sync Trakt**
+3. Klicke auf **Installieren** → **Aktivieren**
 
-1. Installiere **Obsidian42 - BRAT** aus den Community Plugins
-2. Einstellungen → BRAT → **Add a beta plugin for testing**
-3. Füge ein:
-   ```
-   o1xhack/obsidian-sync-trakt
-   ```
-4. **Add Plugin** → aktiviere unter Einstellungen → Community plugins
-
-BRAT prüft bei jedem Obsidian-Start auf Updates und zieht neue Releases automatisch.
+Verzeichnis-Seite: https://community.obsidian.md/plugins/sync-trakt
 
 </details>
 
 <details>
-<summary><b>Manuell</b></summary>
-
-1. Lade `main.js`, `manifest.json`, `styles.css` aus dem [neuesten Release](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest) herunter
-2. Platziere alle drei Dateien in `<dein-vault>/.obsidian/plugins/obsidian-sync-trakt/`
-3. Einstellungen → Community plugins → aktiviere **Sync Trakt**
-
-</details>
-
-<details>
-<summary><b>Obsidian Community Plugins (ausstehend)</b></summary>
-
-> ⚠️ Noch nicht im offiziellen Community Plugins-Verzeichnis von Obsidian gelistet. Sobald akzeptiert, wird dies der empfohlene Pfad. Verwende bis dahin BRAT oben.
-
-</details>
-
-<details>
-<summary><b>Aus Quellcode bauen</b></summary>
+<summary><b>Entwicklung (aus Quellcode bauen)</b></summary>
 
 ```bash
 git clone https://github.com/o1xhack/obsidian-sync-trakt.git
@@ -169,7 +147,16 @@ npm run lint
 npm run test:i18n  # Smoke-Tests
 ```
 
-Dann kopiere `main.js`, `manifest.json`, `styles.css` nach `<vault>/.obsidian/plugins/obsidian-sync-trakt/`.
+Dann kopiere `main.js`, `manifest.json`, `styles.css` nach `<vault>/.obsidian/plugins/sync-trakt/`.
+
+</details>
+
+<details>
+<summary><b>Lokaler Test (manuelle Installation)</b></summary>
+
+1. Lade `main.js`, `manifest.json`, `styles.css` aus dem [neuesten Release](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest) herunter
+2. Platziere alle drei Dateien in `<dein-vault>/.obsidian/plugins/sync-trakt/`
+3. Einstellungen → Community plugins → aktiviere **Sync Trakt**
 
 </details>
 

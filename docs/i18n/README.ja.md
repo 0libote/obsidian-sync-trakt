@@ -102,9 +102,9 @@ trakt_metadata_language: ja-JP
 
 ## 🚀 クイックスタート
 
-1. [BRAT](https://github.com/TfTHacker/obsidian42-brat) でインストール → **Add a beta plugin for testing** → `o1xhack/obsidian-sync-trakt`
+1. 設定 → コミュニティプラグイン → **ブラウズ** → **Sync Trakt** を検索 → **インストール** → **有効化**
 2. 設定 → **Sync Trakt** → Trakt + TMDB API キーを入力（[セットアップガイド](SETUP.ja.md)）
-3. コマンドパレット → **Traktr: Sync**
+3. コマンドパレット → **Sync Trakt: Sync**
 
 ## 🔑 API キーで何ができるか
 
@@ -124,41 +124,19 @@ trakt_metadata_language: ja-JP
 
 ## 📦 インストール
 
-<details>
-<summary><b>BRAT（推奨）</b></summary>
+<details open>
+<summary><b>Obsidian コミュニティプラグイン（推奨）</b></summary>
 
-[BRAT](https://github.com/TfTHacker/obsidian42-brat) は任意の GitHub リポジトリからプラグインをインストールし、自動更新を行います。
+1. 設定 → コミュニティプラグイン → **ブラウズ**
+2. **Sync Trakt** を検索
+3. **インストール** → **有効化** をクリック
 
-1. コミュニティプラグインから **Obsidian42 - BRAT** をインストールして有効化
-2. 設定 → BRAT → **Add a beta plugin for testing**
-3. 以下を貼り付け：
-   ```
-   o1xhack/obsidian-sync-trakt
-   ```
-4. **Add Plugin** をクリック → 設定 → コミュニティプラグインで有効化
-
-その後 Obsidian を起動するたびに BRAT が更新を確認し、新しい release を自動取得します。
+プラグインディレクトリページ：https://community.obsidian.md/plugins/sync-trakt
 
 </details>
 
 <details>
-<summary><b>手動インストール</b></summary>
-
-1. [最新の release](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest) から `main.js`、`manifest.json`、`styles.css` をダウンロード
-2. 3 つのファイルを `<your-vault>/.obsidian/plugins/obsidian-sync-trakt/` に配置
-3. 設定 → コミュニティプラグイン → **Sync Trakt** を有効化
-
-</details>
-
-<details>
-<summary><b>Obsidian コミュニティプラグイン（提出予定）</b></summary>
-
-> ⚠️ Obsidian の公式コミュニティプラグインディレクトリにはまだ登録されていません。承認され次第、これが推奨パスになります。それまでは上記の BRAT を使用してください。
-
-</details>
-
-<details>
-<summary><b>ソースからビルド</b></summary>
+<summary><b>開発（ソースからビルド）</b></summary>
 
 ```bash
 git clone https://github.com/o1xhack/obsidian-sync-trakt.git
@@ -169,7 +147,16 @@ npm run lint
 npm run test:i18n  # スモークテスト
 ```
 
-その後 `main.js`、`manifest.json`、`styles.css` を `<vault>/.obsidian/plugins/obsidian-sync-trakt/` にコピーします。
+その後 `main.js`、`manifest.json`、`styles.css` を `<vault>/.obsidian/plugins/sync-trakt/` にコピーします。
+
+</details>
+
+<details>
+<summary><b>ローカルテスト（手動インストール）</b></summary>
+
+1. [最新の release](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest) から `main.js`、`manifest.json`、`styles.css` をダウンロード
+2. 3 つのファイルを `<your-vault>/.obsidian/plugins/sync-trakt/` に配置
+3. 設定 → コミュニティプラグイン → **Sync Trakt** を有効化
 
 </details>
 

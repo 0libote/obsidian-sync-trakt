@@ -102,9 +102,9 @@ trakt_metadata_language: ko-KR
 
 ## 🚀 빠른 시작
 
-1. [BRAT](https://github.com/TfTHacker/obsidian42-brat) 으로 설치 → **Add a beta plugin for testing** → `o1xhack/obsidian-sync-trakt`
+1. 설정 → 커뮤니티 플러그인 → **찾아보기** → **Sync Trakt** 검색 → **설치** → **활성화**
 2. 설정 → **Sync Trakt** → Trakt + TMDB API 키 입력([설정 가이드](../SETUP.md))
-3. 명령 팔레트 → **Traktr: Sync**
+3. 명령 팔레트 → **Sync Trakt: Sync**
 
 ## 🔑 API 키가 각각 잠금 해제하는 기능
 
@@ -124,41 +124,19 @@ trakt_metadata_language: ko-KR
 
 ## 📦 설치
 
-<details>
-<summary><b>BRAT (권장)</b></summary>
+<details open>
+<summary><b>Obsidian 커뮤니티 플러그인 (권장)</b></summary>
 
-[BRAT](https://github.com/TfTHacker/obsidian42-brat)은 임의의 GitHub 저장소에서 플러그인을 설치하고 자동 업데이트합니다.
+1. 설정 → 커뮤니티 플러그인 → **찾아보기**
+2. **Sync Trakt** 검색
+3. **설치** → **활성화** 클릭
 
-1. 커뮤니티 플러그인에서 **Obsidian42 - BRAT** 설치 및 활성화
-2. 설정 → BRAT → **Add a beta plugin for testing**
-3. 다음을 붙여넣기:
-   ```
-   o1xhack/obsidian-sync-trakt
-   ```
-4. **Add Plugin** 클릭 → 설정 → 커뮤니티 플러그인에서 활성화
-
-이후 Obsidian이 시작될 때마다 BRAT이 업데이트를 확인하고 새 릴리스를 자동으로 가져옵니다.
+플러그인 디렉토리 페이지: https://community.obsidian.md/plugins/sync-trakt
 
 </details>
 
 <details>
-<summary><b>수동 설치</b></summary>
-
-1. [최신 릴리스](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest)에서 `main.js`, `manifest.json`, `styles.css` 다운로드
-2. 세 파일을 `<your-vault>/.obsidian/plugins/obsidian-sync-trakt/`에 배치
-3. 설정 → 커뮤니티 플러그인 → **Sync Trakt** 활성화
-
-</details>
-
-<details>
-<summary><b>Obsidian 커뮤니티 플러그인 (제출 예정)</b></summary>
-
-> ⚠️ Obsidian 공식 커뮤니티 플러그인 디렉토리에 아직 등록되지 않았습니다. 승인되면 이것이 권장 경로가 됩니다. 그때까지는 위의 BRAT을 사용하세요.
-
-</details>
-
-<details>
-<summary><b>소스에서 빌드</b></summary>
+<summary><b>개발 (소스에서 빌드)</b></summary>
 
 ```bash
 git clone https://github.com/o1xhack/obsidian-sync-trakt.git
@@ -169,7 +147,16 @@ npm run lint
 npm run test:i18n  # 스모크 테스트
 ```
 
-그런 다음 `main.js`, `manifest.json`, `styles.css`를 `<vault>/.obsidian/plugins/obsidian-sync-trakt/`에 복사합니다.
+그런 다음 `main.js`, `manifest.json`, `styles.css`를 `<vault>/.obsidian/plugins/sync-trakt/`에 복사합니다.
+
+</details>
+
+<details>
+<summary><b>로컬 테스트 (수동 설치)</b></summary>
+
+1. [최신 릴리스](https://github.com/o1xhack/obsidian-sync-trakt/releases/latest)에서 `main.js`, `manifest.json`, `styles.css` 다운로드
+2. 세 파일을 `<your-vault>/.obsidian/plugins/sync-trakt/`에 배치
+3. 설정 → 커뮤니티 플러그인 → **Sync Trakt** 활성화
 
 </details>
 
