@@ -18,6 +18,7 @@ import {
   renderWatchHistoryList,
   updateManagedBodySections,
   frontmatterWouldChange,
+  mergeFrontmatterIntoContent,
   valuesEqual,
   WATCH_HISTORY_MARKER_START,
   WATCH_HISTORY_MARKER_END,
@@ -1653,6 +1654,71 @@ void (async () => {
     assertTrue(
       frontmatterWouldChange(dataI18n, onDiskFm, [syncedAtKey]),
       "i18n switch → diff detected (translated fields + new original_* fields)",
+    );
+  }
+
+  console.log("\n[29b] mergeFrontmatterIntoContent — repairs malformed plugin YAML");
+  {
+    const corrupted = [
+      "---",
+      "trakt_title: Old Title",
+      "user_rating: 5",
+      "trakt_rating: 7.220989704132098970413208trakt_votes: 119101",
+      "398300170898",
+      "trakt_country: us",
+      "trakt_country: us",
+      "tags:",
+      "  - old/plugin",
+      "personal_note: keep me",
+      "---",
+      "# Body",
+    ].join("\n");
+    const merged = mergeFrontmatterIntoContent(corrupted, {
+      trakt_title: "New Title",
+      trakt_rating: 8.25,
+      trakt_votes: 120000,
+      trakt_country: "us",
+      tags: ["trakt/movie", "trakt/watched"],
+    });
+
+    assertContains(
+      merged,
+      "trakt_rating: 8.25\ntrakt_votes: 120000\ntrakt_country: us",
+      "owned scalar fields are rewritten as separate YAML lines",
+    );
+    assertContains(
+      merged,
+      "tags:\n  - trakt/movie\n  - trakt/watched",
+      "owned array field is rewritten",
+    );
+    assertContains(
+      merged,
+      "user_rating: 5\npersonal_note: keep me",
+      "unowned user fields are preserved",
+    );
+    assertContains(merged, "---\n# Body", "body remains after frontmatter");
+    assertNotContains(
+      merged,
+      "trakt_rating: 7.220989704132098970413208trakt_votes",
+      "malformed owned line is removed",
+    );
+    assertNotContains(
+      merged,
+      "398300170898",
+      "orphaned malformed owned continuation line is removed",
+    );
+  }
+
+  console.log("\n[29c] mergeFrontmatterIntoContent — adds frontmatter when absent");
+  {
+    const merged = mergeFrontmatterIntoContent("# Body only", {
+      trakt_title: "Only Title",
+    });
+
+    assertEq(
+      merged,
+      "---\ntrakt_title: Only Title\n---\n# Body only",
+      "frontmatter block is inserted before body",
     );
   }
 

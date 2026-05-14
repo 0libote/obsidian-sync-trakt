@@ -381,6 +381,66 @@ export function renderFrontmatterOnly(
   return toFrontmatter(buildFrontmatterData(item, settings));
 }
 
+function frontmatterMatch(content: string): RegExpMatchArray | null {
+  return content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+}
+
+function topLevelYamlKey(line: string): string | null {
+  if (/^\s/.test(line)) return null;
+  const match = line.match(/^([^:#\s][^:]*):(?:\s|$)/);
+  return match ? match[1].trim() : null;
+}
+
+function preservedFrontmatterLines(
+  existingYaml: string,
+  ownedKeys: Set<string>,
+): string[] {
+  const blocks: Array<{ key: string | null; lines: string[] }> = [];
+  let current: { key: string | null; lines: string[] } | null = null;
+
+  for (const line of existingYaml.split(/\r?\n/)) {
+    const key = topLevelYamlKey(line);
+    if (key !== null) {
+      current = { key, lines: [line] };
+      blocks.push(current);
+      continue;
+    }
+
+    if (current) {
+      current.lines.push(line);
+    } else {
+      blocks.push({ key: null, lines: [line] });
+    }
+  }
+
+  return blocks
+    .filter((block) => block.key === null || !ownedKeys.has(block.key))
+    .flatMap((block) => block.lines);
+}
+
+/**
+ * Replace the note's frontmatter with freshly-rendered plugin fields while
+ * preserving unrelated user fields. This intentionally avoids Obsidian's
+ * `processFrontMatter`: once a note has malformed YAML, Obsidian's parser
+ * throws before the callback runs, so it cannot self-heal the file.
+ */
+export function mergeFrontmatterIntoContent(
+  content: string,
+  newData: Record<string, unknown>,
+): string {
+  const match = frontmatterMatch(content);
+  const existingYaml = match ? match[1] : "";
+  const body = match ? content.slice(match[0].length) : content;
+  const ownedKeys = new Set(Object.keys(newData));
+  const generated = toFrontmatter(newData);
+  const preserved = preservedFrontmatterLines(existingYaml, ownedKeys)
+    .join("\n")
+    .trim();
+  const yaml = [generated, preserved].filter(Boolean).join("\n");
+
+  return `---\n${yaml}\n---\n${body}`;
+}
+
 /**
  * Semantic equality for frontmatter values. Handles primitives and arrays
  * (order-sensitive). Anything else falls through to strict `===`.

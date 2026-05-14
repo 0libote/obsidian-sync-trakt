@@ -35,6 +35,7 @@ import {
   renderNote,
   buildFrontmatterData,
   frontmatterWouldChange,
+  mergeFrontmatterIntoContent,
   updateManagedBodySections,
 } from "./note-renderer";
 import {
@@ -1060,31 +1061,23 @@ export class SyncEngine {
             continue;
           }
 
-          // At least one real change. Always run processFrontMatter so
-          // synced_at gets bumped to now (even in body-only-change cases),
-          // and so any newly-changed frontmatter fields land.
-          await this.app.fileManager.processFrontMatter(
-            existingFile,
-            (fm: Record<string, unknown>) => {
-              for (const [key, value] of Object.entries(newData)) {
-                if (value === null || value === undefined) {
-                  delete fm[key];
-                } else {
-                  fm[key] = value;
-                }
-              }
-            },
-          );
-
-          if (bodyChanged) {
-            // Re-compute inside vault.process so we operate on the freshest
-            // content (post-processFrontMatter). updateManagedBodySections
-            // is pure and idempotent, so re-running it on the latest content
-            // is safe and produces the same body section.
-            await this.app.vault.process(existingFile, (oldContent) =>
-              updateManagedBodySections(oldContent, item, this.settings),
+          // At least one real change. Rebuild the plugin-owned frontmatter
+          // fields textually instead of using processFrontMatter. This keeps
+          // the update path able to repair notes whose YAML is already
+          // malformed, because Obsidian's frontmatter parser throws before
+          // invoking our callback in that case.
+          await this.app.vault.process(existingFile, (oldContent) => {
+            const withFrontmatter = mergeFrontmatterIntoContent(
+              oldContent,
+              newData,
             );
-          }
+            if (!bodyChanged) return withFrontmatter;
+            return updateManagedBodySections(
+              withFrontmatter,
+              item,
+              this.settings,
+            );
+          });
           result.updated++;
         }
       } catch (e) {

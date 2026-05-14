@@ -7,6 +7,16 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 1.0.1 — 2026-05-14
+
+### Fixed
+
+- Existing media-note updates no longer rely on Obsidian's frontmatter
+  parser before the plugin can write its own fields. The sync path now
+  rebuilds plugin-owned frontmatter textually, preserving unrelated user
+  fields, so notes with malformed `trakt_*` YAML can self-repair on the
+  next sync instead of failing with parser errors.
+
 ## 0.7.1 — 2026-05-11
 
 **Post-submission-review hardening.** Obsidian's submission bot

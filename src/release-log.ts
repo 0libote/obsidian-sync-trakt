@@ -35,6 +35,12 @@ export interface ReleaseLogEntry {
  */
 export const RELEASE_LOG: ReleaseLogEntry[] = [
   {
+    version: "1.0.1",
+    isBugfix: true,
+    en: "Repair malformed plugin frontmatter on existing media notes and avoid YAML parser failures during sync.",
+    zh: "修复已有媒体笔记中损坏的插件 frontmatter，避免同步时被 YAML 解析错误卡住。",
+  },
+  {
     version: "1.0.0",
     en: "Filename auto-rename on language change. Default ON — disable in Settings → Localization if you'd rather rename manually.",
     zh: "切换语言时自动重命名文件名。默认开启 —— 想手动重命名的话，可在「设置 → 本地化」关闭。",
