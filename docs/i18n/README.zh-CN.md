@@ -14,13 +14,14 @@
 ## ✨ 为什么用这个
 
 - **详细观看记录** —— 每一集是哪一天几点看的、有没有重看，全都同步到笔记里，每天追剧实时更新
-- **覆盖 15+ 语言的元数据** —— 通过 TMDB 把 title / overview / tagline / genres 翻译过来。内置预设涵盖中文（简体 / 繁体 / 港繁）、日文、韩文、法文、德文、西班牙文（西班牙 / 墨西哥）、葡萄牙文（巴西）、意大利文、俄文，外加自定义模式可填任意 TMDB 支持的 locale。英文原文始终保留在 `*_original_*` frontmatter 字段
-- **11 种笔记模板语言** _(0.6.0)_ —— 内置手工翻译的笔记模板，覆盖 en + zh-CN + zh-TW + ja + ko + fr + de + it + es + pt-BR + ru。在新的模板语言下拉框里选择，随时切换不会丢失你的自定义内容
-- **Tab 式设置界面** _(0.6.0)_ —— 通用 / 笔记 / 同步 / Daily Notes 四个 tab。最后查看的 tab 按设备记忆
-- **Daily Notes 集成** _(0.7.0)_ —— 每次同步自动在你的 Daily Note 中插入当天的事件（看了 / 加入想看 / 收藏 / 评分），按时间排序，跟随你的模板语言。Marker 区间内的内容由插件管理，**区间之外的内容绝不修改**。详见 [spec 0006](../specs/0006-daily-notes-integration.md)
-- **增量同步** _(0.2.0)_ —— 首次同步把本地 TMDB 缓存 + Trakt 历史状态填好；之后每次同步只拉变化的部分。稳态同步时间从几分钟降到几秒。详见 [spec 0001](../specs/0001-incremental-sync.md)
-- **安静写盘** _(0.3.0)_ —— 同步只重写**内容真的变了**的笔记。看完一集后，1200 项的影库只重写 1 个笔记，而不是 1200 个 —— Obsidian Sync / iCloud / Syncthing 等多设备同步层不再每次都重传整个库。详见 [spec 0002](../specs/0002-diff-based-write.md)
-- **按设置粒度的云端开关** _(0.5.0)_ —— 每个设置项可单独决定要不要跨设备同步。比如 Mac 上每 30 分钟自动同步，iPhone 上完全关闭 —— 互不打扰。详见 [spec 0003](../specs/0003-device-local-settings.md)
+- **覆盖 15+ 语言的元数据** —— 通过 TMDB 把 title / overview / tagline / genres 翻译过来。内置预设涵盖中文（简体 / 繁体 / 港繁）、日文、韩文、法文、德文、西班牙文（西班牙 / 墨西哥）、葡萄牙文（巴西）、意大利文、俄文，外加自定义模式可填任意 TMDB 支持的 locale。**严格主语言 + 用户自定义回退**（比如简中没有就退到英文）—— 不会再出现想要简中却悄悄给你繁中凑数的情况。英文原文始终保留在 `*_original_*` frontmatter 字段
+- **文件名跟随语言** —— 切换元数据语言后，已有笔记会在下次同步自动重命名匹配新标题；Obsidian 内链自动更新（用的是 `fileManager.renameFile`）。设置里也有「立即重命名」按钮可手动触发
+- **11 种笔记模板语言** —— 内置手工翻译的笔记模板，覆盖 en + zh-CN + zh-TW + ja + ko + fr + de + it + es + pt-BR + ru。在模板语言下拉框里选择，随时切换不会丢失你的自定义内容
+- **Tab 式设置界面** —— 通用 / 笔记 / 同步 / Daily Notes 四个 tab。最后查看的 tab 按设备记忆
+- **Daily Notes 集成** —— 每次同步自动在你的 Daily Note 中插入当天的事件（看了 / 加入想看 / 收藏 / 评分），按时间排序，跟随你的模板语言。Marker 区间内的内容由插件管理，**区间之外的内容绝不修改**。**增量模式**（可选）让你在 marker 区间内手写的批注也能在每次同步后保留。手动回溯改成日期区间选择器，配快捷预设（最近 7 天 / 最近 30 天 / 本月 / 上月）。详见 [spec 0006](../specs/0006-daily-notes-integration.md)
+- **增量同步** —— 首次同步把本地 TMDB 缓存 + Trakt 历史状态填好；之后每次同步只拉变化的部分。稳态同步时间从几分钟降到几秒。详见 [spec 0001](../specs/0001-incremental-sync.md)
+- **安静写盘** —— 同步只重写**内容真的变了**的笔记。看完一集后，1200 项的影库只重写 1 个笔记，而不是 1200 个 —— Obsidian Sync / iCloud / Syncthing 等多设备同步层不再每次都重传整个库。详见 [spec 0002](../specs/0002-diff-based-write.md)
+- **按设置粒度的云端开关** —— 每个设置项可单独决定要不要跨设备同步。比如 Mac 上每 30 分钟自动同步，iPhone 上完全关闭 —— 互不打扰。详见 [spec 0003](../specs/0003-device-local-settings.md)
 
 ## 🎬 详细观看记录
 
@@ -65,11 +66,11 @@ trakt_metadata_language: zh-CN
 上面的元数据本地化是一条轴，插件自身的几个表面是另外的轴：
 
 - **设置面板、命令面板、提示弹窗** 目前支持 **English** 和 **简体中文**。其他 UI 语言按需扩展 —— 想贡献的话欢迎 [开个 issue](https://github.com/o1xhack/obsidian-sync-trakt/issues)
-- **内置笔记模板** _(0.6.0 从 3 种扩展到 11 种)_ —— 英文、简体中文 (zh-CN)、繁体中文 (zh-TW / zh-HK)、日文、韩文、法文、德文、意大利文、西班牙文、葡萄牙文 (BR)、俄文。手工翻译，不是机翻；段落标题、列表标签、标点符号都按各语言的习惯（日文用全角冒号、法文用空格冒号 etc.）。模板语言下拉框只列这 11 种；不在列表里的语言不再显示（之前会静默回退到英文，容易误导用户）
+- **内置笔记模板** 共 11 种语言 —— 英文、简体中文 (zh-CN)、繁体中文 (zh-TW / zh-HK)、日文、韩文、法文、德文、意大利文、西班牙文、葡萄牙文 (BR)、俄文。手工翻译，不是机翻；段落标题、列表标签、标点符号都按各语言的习惯（日文用全角冒号、法文用空格冒号 etc.）。模板语言下拉框只列这 11 种；不在列表里的语言会回退到英文（而不是悄悄挑一个邻近的方言凑数）
 
 <!-- screenshot: bilingual-ui -->
 
-## 📅 Daily Notes 集成 _(0.7.0)_
+## 📅 Daily Notes 集成
 
 每次同步自动把当天事件按时间顺序插入到你的 Daily Note 中 —— 看了的剧集、加入想看的、收藏的、打分的，全部包括：
 
@@ -81,15 +82,17 @@ trakt_metadata_language: zh-CN
 %% trakt:daily:end %%
 ```
 
-每种事件类型受对应的「同步来源」开关控制 —— 比如关掉「同步收藏」，收藏事件就不会出现在 Daily Notes 里。动词（`看了` / `视聴` / `시청` / `a regardé`…）跟随你的**模板语言**设置，覆盖全部 11 种 bundled 语言。
+每种事件类型受对应的「同步来源」开关控制 —— 比如关掉「同步收藏」，收藏事件就不会出现在 Daily Notes 里。动词（`看了` / `視聴` / `시청` / `a regardé`…）跟随你的**模板语言**设置，覆盖全部 11 种内置语言。
 
-**安全契约**：marker 区间内的内容由插件管理，**区间之外的内容绝不修改**。过去的日期是只增不改（已有的 marker 不会被覆盖）；今天的内容每次同步都会刷新，让晚上看的新内容能正确出现。在 **设置 → Daily Notes** 里配置文件夹和文件名格式（Moment.js 语法，比如 `YYYY-MM-DD` 或 `YYYY/YYYY.MM.DD`）。手动**回溯**按钮最多支持 30 天。详见 [spec 0006](../specs/0006-daily-notes-integration.md)。
+**安全契约**：marker 区间内的内容由插件管理，**区间之外的内容绝不修改**。过去的日期默认只增不改（已有的 marker 不会被覆盖）；今天的内容每次同步都会刷新。**增量模式**（可选）把今天的行为也改成只追加，这样你在 marker 区间内手写的批注也能在每次同步后保留。
+
+**手动回溯**用日期区间选择器，配快捷预设（最近 7 天 / 最近 30 天 / 本月 / 上月）。点确认前会实时显示"该区间内有多少篇 Daily Note 实际存在"。在 **设置 → Daily Notes** 里配置文件夹和文件名格式（Moment.js 语法，比如 `YYYY-MM-DD` 或 `YYYY/YYYY.MM.DD`）。详见 [spec 0006](../specs/0006-daily-notes-integration.md)。
 
 ## 🔄 多设备同步
 
 授权状态（Trakt token、TMDB key、所有设置）保存在 vault 的 `.obsidian/plugins/sync-trakt/data.json` 里，跟随你的 vault 同步走。在 Mac 上配一次，通过 Obsidian Sync（勾选 `Plugin data` 同步）、Syncthing、iCloud + 高级数据保护、或 Cryptomator 同步到 iPhone。**插件不在任何服务器存储数据**。
 
-0.5.0 起，**任何单个设置都可以单独退出跨设备同步** —— 设置项旁边有个小云朵图标可以切换（目前已开放给「启动时同步」、「自动同步」、「自动同步间隔」、「插件 UI 语言」四项）。适合"Mac 上 30 分钟自动同步、iPhone 上不要"这种场景。
+**任何单个设置都可以单独退出跨设备同步** —— 设置项旁边有个小云朵图标可以切换（目前已开放给「启动时同步」、「自动同步」、「自动同步间隔」、「插件 UI 语言」四项）。适合"Mac 上 30 分钟自动同步、iPhone 上不要"这种场景。
 
 ## 📊 在 Obsidian Bases 里查看影库
 
@@ -179,8 +182,10 @@ npm run test:i18n  # 跑冒烟测试
 - [x] **0.4** — 提交准备。Plugin id 从 `obsidian-sync-trakt` 改成 `sync-trakt`（Obsidian 官方目录 bot 拒绝含 obsidian 的 id）、`minAppVersion` 调到 1.6.6、首次启动时透明自动迁移老目录数据。→ [spec 0004](../specs/0004-obsidian-directory-submission.md)
 - [x] **0.5** — 设备本地设置 + 自动清理。每个设置项旁边的云朵图标可单独控制是否跨设备同步；迁移后自动清理老目录里的 binary 文件（保留 data.json 作为救命稻草），不再让用户看到两个重复的插件入口。→ [spec 0003](../specs/0003-device-local-settings.md)
 - [x] **0.6** — Tab 式设置界面 + 11 种笔记模板语言。设置页重构成 4 个 tab（通用 / 笔记 / 同步 / Daily Notes）；笔记模板从 3 种扩展到 11 种（新增 ja、ko、fr、de、it、es、pt-BR、ru，全部手工翻译）；模板语言下拉框只列出已 bundled 的语言。→ [spec 0005](../specs/0005-settings-ui-tabs.md) + [spec 0007](../specs/0007-template-language-expansion.md)
-- [x] **0.7** — Daily Notes 集成。每次同步自动把当天事件（看了 / 加入想看 / 收藏 / 评分）按时间顺序写进你的 Daily Note，跟随模板语言。过去的日期只增不改，今天的内容随时刷新。手动回溯按钮支持过去 30 天。→ [spec 0006](../specs/0006-daily-notes-integration.md)
-- [ ] **进行中** — 提交到 Obsidian 官方[Community Plugins 插件目录](https://obsidian.md/plugins)。[PR #12757](https://github.com/obsidianmd/obsidian-releases/pull/12757) 审核中
+- [x] **0.7** — Daily Notes 集成。每次同步自动把当天事件（看了 / 加入想看 / 收藏 / 评分）按时间顺序写进你的 Daily Note，跟随模板语言。过去的日期只增不改，今天的内容随时刷新。→ [spec 0006](../specs/0006-daily-notes-integration.md)
+- [x] **0.8** — Daily Notes **增量同步模式**。可选模式：今天的 marker 区间从"全替换"改成"只追加"，这样你在区间内手写的批注每次同步都能保留。
+- [x] **0.9** — **元数据语言回退**。在「元数据语言」下方新加"回退语言"下拉。设置后主语言变严格匹配（不会再用 zh-TW 凑 zh-CN），命中不到再走回退，最后才退到英文原文。→ [spec 0008](../specs/0008-metadata-language-fallback.md)
+- [x] **1.0** — **文件名自动重命名 + 持久化"更新说明"弹窗 + 日期区间回溯**。切换元数据语言后，已有笔记下次同步自动重命名（Obsidian 内链自动跟随）。每个新版本首次启动会弹一次"更新说明"，显示距上次以来的版本变化。手动回溯改为日期区间选择器（起始 / 结束 + 快捷预设）。→ [spec 0009](../specs/0009-filename-rename.md)
 - [ ] **未来** — 更多 UI 翻译（目前 en + zh-CN）按需增加；更多 bundled 模板语言可按用户请求添加
 
 ## 🤝 致谢
