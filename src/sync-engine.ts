@@ -481,30 +481,22 @@ function preferIdentityFile(candidate: TFile, current: TFile, traktId: number): 
   return candidate.path < current.path;
 }
 
-/**
- * Re-read the current sync folder for a specific identity. This closes a race
- * with Obsidian Sync: `scanExistingNotes()` runs before TMDB/translation
- * lookups, so another device can download an already-existing note after that
- * snapshot but before we start writing. Without this live identity check the
- * create path sees the filename collision, appends `[trakt_id]`, and creates a
- * duplicate note with the same frontmatter ID.
- */
-export async function findExistingNoteByIdentity(
+export async function findMatchingIdentityFile(
   app: App,
-  folderPath: string,
   propertyPrefix: string,
   type: ItemType,
   traktId: number,
+  files: TFile[],
 ): Promise<TFile | null> {
-  const folder = app.vault.getAbstractFileByPath(folderPath);
-  if (!(folder instanceof TFolder)) return null;
-
   const idKey = `${propertyPrefix}id`;
   const typeKey = `${propertyPrefix}type`;
   let match: TFile | null = null;
+  const seen = new Set<string>();
 
-  for (const child of folder.children) {
-    if (!(child instanceof TFile) || child.extension !== "md") continue;
+  for (const child of files) {
+    if (seen.has(child.path)) continue;
+    seen.add(child.path);
+
     const content = await app.vault.cachedRead(child);
     const { frontmatter } = parseFrontmatter(content);
     const noteId = parseInt(frontmatter[idKey], 10);
@@ -1030,21 +1022,28 @@ export class SyncEngine {
           // share the same default `{{title}} ({{year}})` string —
           // localized titles like "重生" / "Reborn" / "Be Reborn" all
           // collapse to "重生" under zh-CN.
+          const collidedFiles: TFile[] = [];
           const { filename, tier } = disambiguatedFilename(
             item,
             this.settings.filenameTemplate,
-            (candidate) =>
-              !!this.app.vault.getAbstractFileByPath(
+            (candidate) => {
+              const found = this.app.vault.getAbstractFileByPath(
                 normalizePath(`${folderPath}/${candidate}.md`),
-              ),
+              );
+              if (found instanceof TFile) {
+                collidedFiles.push(found);
+                return true;
+              }
+              return !!found;
+            },
           );
           if (tier > 0) {
-            const liveFile = await findExistingNoteByIdentity(
+            const liveFile = await findMatchingIdentityFile(
               this.app,
-              folderPath,
               this.settings.propertyPrefix,
               item.type,
               item.ids.trakt,
+              collidedFiles,
             );
             if (liveFile) {
               existingFile = liveFile;

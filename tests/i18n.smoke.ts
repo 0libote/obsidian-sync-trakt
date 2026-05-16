@@ -52,7 +52,7 @@ import { processWithConcurrency } from "../src/utils";
 import {
   buildFilename,
   disambiguatedFilename,
-  findExistingNoteByIdentity,
+  findMatchingIdentityFile,
 } from "../src/sync-engine";
 import {
   localTodayISODate,
@@ -3182,19 +3182,16 @@ void (async () => {
     assertEq(result2.tier, 1, "self-exclusion: tier === 1 when other file genuinely collides");
   }
 
-  // ── Test 61b: live identity lookup prevents Obsidian Sync race duplicates ─
-  // The sync engine scans existing notes before TMDB/translation work. On a
-  // second device, Obsidian Sync can download an existing note after that
-  // snapshot. The create path must re-check by frontmatter identity before
-  // creating, otherwise it sees the filename collision and creates
+  // ── Test 61b: collision identity lookup prevents same-ID duplicates ─
+  // The sync engine keeps one folder index, but on a second device Obsidian
+  // Sync can still download an existing note after that snapshot. If the
+  // create path sees a filename collision, it must inspect the collided
+  // file's frontmatter before creating, otherwise it creates
   // "Title [trakt_id] (year).md" beside the original.
 
-  console.log("\n[61b] findExistingNoteByIdentity — prefers existing same-ID note");
+  console.log("\n[61b] findMatchingIdentityFile — checks collided files only");
   {
     const stub = await import("./stub-obsidian");
-    const folder = new stub.TFolder();
-    folder.path = "Trakt";
-
     const plain = new stub.TFile() as InstanceType<typeof stub.TFile> & {
       basename: string;
     };
@@ -3211,32 +3208,36 @@ void (async () => {
     bracketed.basename = "Shrinking [189764] (2023)";
     bracketed.extension = "md";
 
-    folder.children = [bracketed, plain];
-
-    const content = "---\ntrakt_type: show\ntrakt_id: 189764\n---\n";
+    const reads: string[] = [];
     const app = new stub.App() as unknown as {
       vault: {
-        getAbstractFileByPath: (path: string) => unknown;
         cachedRead: (file: InstanceType<typeof stub.TFile>) => Promise<string>;
       };
     };
     app.vault = {
-      getAbstractFileByPath: (path: string) => (path === "Trakt" ? folder : null),
-      cachedRead: async () => content,
+      cachedRead: async (file) => {
+        reads.push(file.path);
+        return "---\ntrakt_type: show\ntrakt_id: 189764\n---\n";
+      },
     };
 
-    const found = await findExistingNoteByIdentity(
+    const found = await findMatchingIdentityFile(
       app as never,
-      "Trakt",
       "trakt_",
       "show",
       189764,
+      [bracketed, plain],
     );
 
     assertEq(
       found?.path,
       plain.path,
-      "live identity lookup picks the original path over the bracketed duplicate",
+      "collision identity lookup picks the original path over the bracketed duplicate",
+    );
+    assertEq(
+      reads.sort(),
+      [bracketed.path, plain.path].sort(),
+      "collision identity lookup reads only the collided candidate files",
     );
   }
 
