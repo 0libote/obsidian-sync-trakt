@@ -7,7 +7,7 @@ import {
   normalizePath,
 } from "obsidian";
 import type TraktrPlugin from "./main";
-import { getTranslator, type UiLanguage } from "./i18n";
+import { getTranslator, type StringKey, type UiLanguage } from "./i18n";
 import { dedupeDuplicateNotes, renameAllNotes } from "./sync-engine";
 import type { ReleaseHighlight, ReleaseLogEntry } from "./release-log";
 import {
@@ -41,7 +41,7 @@ export const POSTER_SIZES = [
 
 export type PosterSize = (typeof POSTER_SIZES)[number];
 
-export const BUILD_CREATED_AT = "2026-05-16 15:56:30 PDT";
+export const BUILD_CREATED_AT = "2026-05-16 16:04:35 PDT";
 
 /**
  * [0.5.0] Settings that can be marked as "device-local" per spec 0003.
@@ -79,6 +79,79 @@ export const DEFAULT_LOCAL_KEYS: ReadonlyArray<LocalEligibleKey> = [
   "autoSyncEnabled",
   "autoSyncIntervalMinutes",
 ];
+
+export type ConfirmDangerousActionOptions = {
+  title: StringKey;
+  body: StringKey;
+  confirm: StringKey;
+};
+
+class ConfirmDangerousActionModal extends Modal {
+  private translate: ReturnType<typeof getTranslator>;
+  private options: ConfirmDangerousActionOptions;
+  private resolve: (confirmed: boolean) => void;
+  private settled = false;
+
+  constructor(
+    app: App,
+    translate: ReturnType<typeof getTranslator>,
+    options: ConfirmDangerousActionOptions,
+    resolve: (confirmed: boolean) => void,
+  ) {
+    super(app);
+    this.translate = translate;
+    this.options = options;
+    this.resolve = resolve;
+  }
+
+  onOpen(): void {
+    const { contentEl, titleEl } = this;
+    titleEl.setText(this.translate(this.options.title));
+
+    const body = contentEl.createDiv({ cls: "trakt-confirm-body" });
+    for (const para of this.translate(this.options.body).split("\n")) {
+      if (para.trim() === "") continue;
+      body.createEl("p", { text: para });
+    }
+
+    const btnContainer = contentEl.createDiv({ cls: "trakt-modal-buttons" });
+    const cancelBtn = btnContainer.createEl("button", {
+      text: this.translate("confirm.cancel"),
+    });
+    cancelBtn.onclick = () => this.finish(false);
+
+    const confirmBtn = btnContainer.createEl("button", {
+      text: this.translate(this.options.confirm),
+      cls: "mod-warning",
+    });
+    confirmBtn.onclick = () => this.finish(true);
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+    if (!this.settled) {
+      this.settled = true;
+      this.resolve(false);
+    }
+  }
+
+  private finish(confirmed: boolean): void {
+    if (this.settled) return;
+    this.settled = true;
+    this.resolve(confirmed);
+    this.close();
+  }
+}
+
+export function confirmDangerousAction(
+  app: App,
+  translate: ReturnType<typeof getTranslator>,
+  options: ConfirmDangerousActionOptions,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    new ConfirmDangerousActionModal(app, translate, options, resolve).open();
+  });
+}
 
 /**
  * Namespace prefix for all localStorage keys this plugin owns. Obsidian's
@@ -1222,6 +1295,14 @@ export class TraktrSettingTab extends PluginSettingTab {
     });
   }
 
+  private confirmAction(options: ConfirmDangerousActionOptions): Promise<boolean> {
+    return confirmDangerousAction(
+      this.plugin.app,
+      getTranslator(this.plugin.settings.uiLanguage),
+      options,
+    );
+  }
+
   /**
    * [0.7.0] Render the Daily Notes tab (spec 0006). Contains:
    *   - Enable toggle
@@ -1525,6 +1606,12 @@ export class TraktrSettingTab extends PluginSettingTab {
           .setButtonText(t("auth.connection.disconnect"))
           .setWarning()
           .onClick(async () => {
+            const confirmed = await this.confirmAction({
+              title: "confirm.disconnect.title",
+              body: "confirm.disconnect.body",
+              confirm: "confirm.disconnect.confirm",
+            });
+            if (!confirmed) return;
             this.plugin.settings.accessToken = "";
             this.plugin.settings.refreshToken = "";
             this.plugin.settings.tokenExpiresAt = 0;
@@ -1666,6 +1753,12 @@ export class TraktrSettingTab extends PluginSettingTab {
           .setButtonText(t("tmdb.cache.clear.button"))
           .setWarning()
           .onClick(async () => {
+            const confirmed = await this.confirmAction({
+              title: "confirm.clearTmdb.title",
+              body: "confirm.clearTmdb.body",
+              confirm: "confirm.clearTmdb.confirm",
+            });
+            if (!confirmed) return;
             clearTmdbCache(this.plugin.settings.tmdbCache);
             await this.plugin.saveSettings();
             new Notice(t("tmdb.cache.clear.notice"));
@@ -2129,6 +2222,12 @@ export class TraktrSettingTab extends PluginSettingTab {
               .setButtonText(t("history.state.clear.button"))
               .setWarning()
               .onClick(async () => {
+                const confirmed = await this.confirmAction({
+                  title: "confirm.clearHistory.title",
+                  body: "confirm.clearHistory.body",
+                  confirm: "confirm.clearHistory.confirm",
+                });
+                if (!confirmed) return;
                 clearHistoryState(this.plugin.settings.historyState);
                 await this.plugin.saveSettings();
                 new Notice(t("history.state.clear.notice"));
@@ -2265,6 +2364,12 @@ export class TraktrSettingTab extends PluginSettingTab {
           .setWarning()
           .onClick(async () => {
             const tNow = getTranslator(this.plugin.settings.uiLanguage);
+            const confirmed = await this.confirmAction({
+              title: "confirm.dedupe.title",
+              body: "confirm.dedupe.body",
+              confirm: "confirm.dedupe.confirm",
+            });
+            if (!confirmed) return;
             btn.setButtonText(tNow("syncMaintenance.dedupe.running"));
             btn.setDisabled(true);
             try {
@@ -2306,6 +2411,12 @@ export class TraktrSettingTab extends PluginSettingTab {
           .setButtonText(t("reset.button.name"))
           .setWarning()
           .onClick(async () => {
+            const confirmed = await this.confirmAction({
+              title: "confirm.reset.title",
+              body: "confirm.reset.body",
+              confirm: "confirm.reset.confirm",
+            });
+            if (!confirmed) return;
             const {
               accessToken,
               refreshToken,

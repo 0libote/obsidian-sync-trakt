@@ -2688,6 +2688,41 @@ void (async () => {
     }
   }
 
+  console.log("\n[56c] destructive-action confirmation strings — EN + zh-CN");
+  {
+    const confirmKeys = [
+      "confirm.cancel",
+      "confirm.disconnect.title",
+      "confirm.disconnect.body",
+      "confirm.disconnect.confirm",
+      "confirm.clearTmdb.title",
+      "confirm.clearTmdb.body",
+      "confirm.clearTmdb.confirm",
+      "confirm.clearHistory.title",
+      "confirm.clearHistory.body",
+      "confirm.clearHistory.confirm",
+      "confirm.dedupe.title",
+      "confirm.dedupe.body",
+      "confirm.dedupe.confirm",
+      "confirm.reset.title",
+      "confirm.reset.body",
+      "confirm.reset.confirm",
+    ] as const;
+    for (const k of confirmKeys) {
+      const enMsg = t(k, "en");
+      const zhMsg = t(k, "zh-CN");
+      assertTrue(
+        enMsg.length > 0 && !enMsg.startsWith("confirm."),
+        `en '${k}' resolves`,
+      );
+      assertTrue(
+        zhMsg.length > 0 && !zhMsg.startsWith("confirm."),
+        `zh-CN '${k}' resolves`,
+      );
+      assertTrue(enMsg !== zhMsg, `'${k}': en and zh-CN actually differ`);
+    }
+  }
+
   // ── Test 56: [0.7.2] empty marker pair detection ────────────────────
   // Bug: a Daily Note template that pre-injects `%% start %%\n%% end %%`
   // into freshly created past-day notes would short-circuit past-day

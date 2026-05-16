@@ -48,8 +48,8 @@ const STRINGS = {
     "zh-CN": "默认 %% trakt:daily:start %% —— 隐形 Obsidian 注释。想让区间在阅读模式可见就改成 markdown 标题（比如 ## 今日 Trakt）。",
   },
   "daily.warning": {
-    en: "⚠ Content between the two markers is auto-managed. Today's region is overwritten on every sync; do not edit text between the markers — it will be replaced.",
-    "zh-CN": "⚠ 两个 marker 之间的内容由插件自动管理。今天的内容每次同步都会被覆盖；**请勿在 marker 之间手写内容** —— 会被覆盖掉。",
+    en: "Content between the two markers is managed by the plugin. Today's marker region can be refreshed on sync, so keep manual notes outside the markers.",
+    "zh-CN": "两个 marker 之间的内容由插件自动管理。今天的 marker 区间可能会在同步时刷新；手写内容请放在 marker 外面。",
   },
   "daily.preview.name": { en: "Entry format preview", "zh-CN": "条目格式预览" },
   "daily.preview.desc": {
@@ -789,6 +789,74 @@ const STRINGS = {
     en: "Sync Trakt: dedupe scanned duplicate groups {groups}, moved {trashed} note(s) to trash, renamed {renamed}, failed {failed}.",
     "zh-CN":
       "Sync Trakt：去重扫描到 {groups} 组重复，移入回收站 {trashed} 篇，重命名 {renamed} 篇，失败 {failed}。",
+  },
+
+  // ── Confirmation modals ──
+  "confirm.cancel": { en: "Cancel", "zh-CN": "取消" },
+  "confirm.disconnect.title": {
+    en: "Disconnect Trakt account?",
+    "zh-CN": "断开 Trakt 账号？",
+  },
+  "confirm.disconnect.body": {
+    en: "This removes the saved Trakt access and refresh tokens from this plugin.\nYour synced notes, settings, TMDB cache, and history state stay in place.\nSync will stop until you connect the account again.",
+    "zh-CN":
+      "这会移除插件里保存的 Trakt access token 和 refresh token。\n已经同步的笔记、设置、TMDB 缓存和历史状态都会保留。\n重新连接账号之前，插件无法继续同步 Trakt。",
+  },
+  "confirm.disconnect.confirm": {
+    en: "Disconnect",
+    "zh-CN": "断开连接",
+  },
+  "confirm.clearTmdb.title": {
+    en: "Clear TMDB cache?",
+    "zh-CN": "清空 TMDB 缓存？",
+  },
+  "confirm.clearTmdb.body": {
+    en: "This clears cached TMDB metadata such as poster URLs, translated titles, overviews, taglines, and genres.\nNotes are not deleted or edited immediately. The next sync may re-fetch metadata from TMDB.\nIn 1.1.0 this cache lives in local runtime storage, not synced data.json, so clearing it does not reduce Obsidian Sync storage history.",
+    "zh-CN":
+      "这会清空本机缓存的 TMDB 元数据，包括海报地址、翻译标题、简介、tagline 和类型。\n已有笔记不会立刻被删除或修改。下次同步可能会重新从 TMDB 拉取元数据。\n在 1.1.0 中，这些缓存位于本机 runtime 存储，不在同步的 data.json 里；清空它不会减少 Obsidian Sync 的历史占用。",
+  },
+  "confirm.clearTmdb.confirm": {
+    en: "Clear cache",
+    "zh-CN": "清空缓存",
+  },
+  "confirm.clearHistory.title": {
+    en: "Clear watch-history state?",
+    "zh-CN": "清空观看历史状态？",
+  },
+  "confirm.clearHistory.body": {
+    en: "This clears the local detailed watch-history state used to render per-movie and per-episode watch-history sections.\nExisting notes are not deleted immediately. The next detailed sync will rebuild the state from Trakt and may refresh managed watch-history sections.",
+    "zh-CN":
+      "这会清空本机用于渲染电影和剧集详细观看记录的历史状态。\n已有笔记不会立刻被删除。下次详细同步会从 Trakt 重新构建状态，并可能刷新插件管理的观看记录区块。",
+  },
+  "confirm.clearHistory.confirm": {
+    en: "Clear history state",
+    "zh-CN": "清空历史状态",
+  },
+  "confirm.dedupe.title": {
+    en: "Deduplicate synced notes?",
+    "zh-CN": "去重同步笔记？",
+  },
+  "confirm.dedupe.body": {
+    en: "This scans the current sync folder and groups notes by trakt_type + trakt_id.\nFor each duplicate group, the note that best matches your current filename template is kept, and the other copies are moved to Obsidian trash.\nNo Trakt or TMDB API calls are made.",
+    "zh-CN":
+      "这会扫描当前同步文件夹，并按 trakt_type + trakt_id 分组。\n每组重复项会保留最符合当前文件名模板的一篇，其余副本会移入 Obsidian 回收站。\n这个操作不会调用 Trakt 或 TMDB API。",
+  },
+  "confirm.dedupe.confirm": {
+    en: "Deduplicate",
+    "zh-CN": "去重",
+  },
+  "confirm.reset.title": {
+    en: "Reset settings to defaults?",
+    "zh-CN": "恢复默认设置？",
+  },
+  "confirm.reset.body": {
+    en: "This resets plugin settings and plugin state such as folders, templates, sync sources, cache TTLs, Daily Notes options, TMDB cache, and detailed watch-history state.\nTrakt authentication credentials and UI language are preserved. Existing notes are not deleted.",
+    "zh-CN":
+      "这会把插件设置和插件状态恢复为默认值，包括文件夹、模板、同步来源、缓存有效期、Daily Notes 选项、TMDB 缓存和详细观看历史状态。\nTrakt 认证信息和界面语言会保留。已有笔记不会被删除。",
+  },
+  "confirm.reset.confirm": {
+    en: "Reset settings",
+    "zh-CN": "恢复默认",
   },
 
   // ── Reset section ──

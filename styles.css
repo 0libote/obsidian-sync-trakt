@@ -83,13 +83,14 @@
 
 /* [0.7.0] Daily Notes settings tab — warning banner, preview, sources */
 .trakt-daily-warning {
-  margin: 0.5em 0 1.5em 0;
-  padding: 0.75em 1em;
+  margin: 0.25em 0 1.25em 0;
+  padding: 0.45em 0;
   border-radius: 4px;
-  background: var(--background-modifier-error-hover);
-  color: var(--text-normal);
-  font-size: 0.9em;
-  border-left: 3px solid var(--background-modifier-error);
+  background: transparent;
+  color: var(--text-warning, var(--color-orange));
+  font-size: 0.88em;
+  line-height: 1.45;
+  border: none;
 }
 
 .trakt-daily-preview {
@@ -120,6 +121,16 @@
 
 .trakt-modal-buttons button {
   padding: 0.5em 1em;
+}
+
+.trakt-confirm-body {
+  margin: 0.5em 0 0;
+}
+
+.trakt-confirm-body p {
+  margin: 0.5em 0;
+  color: var(--text-normal);
+  line-height: 1.5;
 }
 
 /* [0.3.2] TMDB key Test button result line + missing-key warning banner. */

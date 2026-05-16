@@ -45,8 +45,8 @@ export const RELEASE_LOG: ReleaseLogEntry[] = [
     version: "1.1.0",
     titleEn: "Local runtime cache storage",
     titleZh: "本机运行缓存存储",
-    en: "Large TMDB and detailed-watch-history caches now live outside the vault in local runtime storage. Synced data.json stays small, frequent auto-sync no longer rewrites multi-megabyte plugin data, a synced full-refresh coordinator keeps Mac / Windows / iOS devices from writing stale detailed history, live same-ID note lookup avoids duplicate notes when Obsidian Sync downloads existing files during a sync, and the Sync tab now includes a dedupe maintenance button for existing duplicate notes.",
-    zh: "大型 TMDB 缓存与详细观看历史缓存现在放在 vault 外的本机运行存储里。同步的 data.json 保持很小，频繁自动同步不会再重写数 MB 的插件数据；同时通过一个同步的全量刷新协调字段，避免 Mac / Windows / iOS 设备用过期详细历史写回笔记；新增同 ID 笔记的实时查找，避免 Obsidian Sync 在同步过程中下载旧文件时生成重复笔记；同步页也新增去重维护按钮，用于清理已经存在的重复笔记。",
+    en: "Large TMDB and detailed-watch-history caches now live outside the vault in local runtime storage. Synced data.json stays small, frequent auto-sync no longer rewrites multi-megabyte plugin data, a synced full-refresh coordinator keeps Mac / Windows / iOS devices from writing stale detailed history, and live same-ID note lookup avoids duplicate notes when Obsidian Sync downloads existing files during a sync. Key maintenance actions now use a second confirmation dialog with impact details, including disconnecting Trakt, clearing caches or history state, deduplicating synced notes, and resetting defaults.",
+    zh: "大型 TMDB 缓存与详细观看历史缓存现在放在 vault 外的本机运行存储里。同步的 data.json 保持很小，频繁自动同步不会再重写数 MB 的插件数据；同时通过一个同步的全量刷新协调字段，避免 Mac / Windows / iOS 设备用过期详细历史写回笔记；新增同 ID 笔记的实时查找，避免 Obsidian Sync 在同步过程中下载旧文件时生成重复笔记。断开连接、清空缓存、清空历史状态、去重同步笔记、恢复默认等关键维护操作，现在统一增加二次确认弹窗，并在执行前说明具体影响。",
   },
   {
     version: "1.0.1",

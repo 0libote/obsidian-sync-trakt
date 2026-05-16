@@ -7,6 +7,7 @@ import {
   LOCAL_STORAGE_PREFIX,
   TraktrSettingTab,
   WhatsNewModal,
+  confirmDangerousAction,
   type LocalEligibleKey,
   type TraktrSettings,
 } from "./settings";
@@ -188,6 +189,12 @@ export default class TraktrPlugin extends Plugin {
       name: t("cmd.disconnect"),
       callback: async () => {
         const tNow = getTranslator(this.settings.uiLanguage);
+        const confirmed = await confirmDangerousAction(this.app, tNow, {
+          title: "confirm.disconnect.title",
+          body: "confirm.disconnect.body",
+          confirm: "confirm.disconnect.confirm",
+        });
+        if (!confirmed) return;
         this.settings.accessToken = "";
         this.settings.refreshToken = "";
         this.settings.tokenExpiresAt = 0;
@@ -223,6 +230,12 @@ export default class TraktrPlugin extends Plugin {
       name: t("cmd.clearTmdbCache"),
       callback: async () => {
         const tNow = getTranslator(this.settings.uiLanguage);
+        const confirmed = await confirmDangerousAction(this.app, tNow, {
+          title: "confirm.clearTmdb.title",
+          body: "confirm.clearTmdb.body",
+          confirm: "confirm.clearTmdb.confirm",
+        });
+        if (!confirmed) return;
         clearTmdbCache(this.settings.tmdbCache);
         await this.saveSettings();
         new Notice(tNow("tmdb.cache.clear.notice"));
