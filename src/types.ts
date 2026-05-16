@@ -159,8 +159,10 @@ export interface EpisodeWatchHistory {
 }
 
 /**
- * Persistent aggregated state for the detailed watch history. Lives in
- * `data.json` under `settings.historyState`. See spec 0001 for design.
+ * Persistent aggregated state for the detailed watch history. As of 1.1.0,
+ * the large aggregate fields live in vault-external runtime storage; only
+ * small cross-device coordination fields are written to `data.json`. See
+ * specs 0001 and 0010 for design.
  *
  * - `byMovie` / `byShow`: ready-to-render aggregations keyed by Trakt id.
  * - `knownEventIds`: every individual watch-event id we've ingested. Used
@@ -185,6 +187,11 @@ export interface HistoryState {
   // Empty string means "never run" (first sync after enabling).
   // See spec 0006 §"Catch-up algorithm".
   lastDailyNoteSyncedAt: string;
+  // [1.1.0] Synced coordinator for local runtime caches. When any device
+  // completes a full history refresh, it writes that timestamp here; devices
+  // with an older local lastFullRefreshAt must full-refresh before writing
+  // detailed watch history from local cache.
+  lastAuthoritativeFullRefreshAt?: string;
   // [1.0.0] Last `manifest.version` for which the user has dismissed the
   // What's-new modal. Empty string = never shown (or upgrading from
   // a pre-1.0 build that didn't have this field). On every launch

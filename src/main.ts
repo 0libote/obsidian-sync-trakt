@@ -15,7 +15,15 @@ import { AuthModal } from "./trakt-auth";
 import { SyncEngine } from "./sync-engine";
 import { getTranslator, type UiLanguage } from "./i18n";
 import { clearTmdbCache } from "./tmdb-api";
-import type { NormalizedItem } from "./types";
+import {
+  buildSlimSyncedHistoryState,
+  mergeSyncedHistoryFields,
+  RUNTIME_STORAGE_SCHEMA_VERSION,
+  RuntimeStore,
+  syncedPayloadContainsRuntimeData,
+  type RuntimeStoragePayload,
+} from "./runtime-store";
+import { EMPTY_HISTORY_STATE, type NormalizedItem } from "./types";
 import {
   processCatchUp,
   processDate,
@@ -62,10 +70,13 @@ export default class TraktrPlugin extends Plugin {
    */
   lastMergedItems: NormalizedItem[] = [];
   private syncEngine!: SyncEngine;
+  private runtimeStore!: RuntimeStore;
+  private lastSavedSyncedSettingsJson = "";
   private autoSyncIntervalId: number | null = null;
   private statusBarEl: HTMLElement | null = null;
 
   async onload() {
+    this.runtimeStore = new RuntimeStore(this.app);
     await this.loadSettings();
     console.debug(
       "[Traktr] Plugin loaded. Connected:",
@@ -350,10 +361,16 @@ export default class TraktrPlugin extends Plugin {
     // (set via the constructor) stays valid. Replacing the object would
     // leave SyncEngine pointing at stale data.
     Object.assign(this.settings, DEFAULT_SETTINGS, loaded ?? {});
+    const migratedRuntime = await this.loadRuntimeState(loaded ?? null);
 
     // [0.5.0] Apply device-local overrides on top of data.json values.
     // See spec 0003 for design rationale.
     this.loadLocalKeysAndApplyOverlay();
+    this.lastSavedSyncedSettingsJson = this.serializeSyncedSettings();
+
+    if (migratedRuntime || syncedPayloadContainsRuntimeData(loaded)) {
+      await this.saveSettings({ forceDataJsonWrite: true });
+    }
   }
 
   /**
@@ -447,6 +464,56 @@ export default class TraktrPlugin extends Plugin {
     }
     this.app.saveLocalStorage(LOCAL_KEYS_STORAGE_KEY, [...this.localKeys]);
     await this.saveSettings();
+  }
+
+  private async loadRuntimeState(
+    synced: Partial<TraktrSettings> | null,
+    preferredRuntime?: RuntimeStoragePayload,
+  ): Promise<boolean> {
+    const runtime = preferredRuntime ?? (await this.runtimeStore.load());
+    if (runtime) {
+      this.settings.tmdbCache = runtime.tmdbCache;
+      this.settings.historyState = mergeSyncedHistoryFields(
+        runtime.historyState,
+        synced?.historyState,
+      );
+      return false;
+    }
+
+    const hadSyncedRuntime = syncedPayloadContainsRuntimeData(synced);
+    this.settings.tmdbCache = synced?.tmdbCache ?? {};
+    this.settings.historyState = mergeSyncedHistoryFields(
+      synced?.historyState ?? { ...EMPTY_HISTORY_STATE },
+      synced?.historyState,
+    );
+    if (hadSyncedRuntime) {
+      await this.runtimeStore.save(this.buildRuntimePayload());
+    }
+    return hadSyncedRuntime;
+  }
+
+  private buildRuntimePayload(): RuntimeStoragePayload {
+    return {
+      schemaVersion: RUNTIME_STORAGE_SCHEMA_VERSION,
+      tmdbCache: this.settings.tmdbCache,
+      historyState: this.settings.historyState,
+    };
+  }
+
+  private buildSyncedSettingsPayload(): Partial<TraktrSettings> {
+    const synced = { ...this.settings } as Partial<TraktrSettings>;
+    for (const key of this.localKeys) {
+      delete synced[key];
+    }
+    synced.tmdbCache = {};
+    synced.historyState = buildSlimSyncedHistoryState(
+      this.settings.historyState,
+    );
+    return synced;
+  }
+
+  private serializeSyncedSettings(): string {
+    return JSON.stringify(this.buildSyncedSettingsPayload());
   }
 
   /**
@@ -559,7 +626,9 @@ export default class TraktrPlugin extends Plugin {
     }
   }
 
-  async saveSettings() {
+  async saveSettings(
+    options: { forceDataJsonWrite?: boolean } = {},
+  ): Promise<void> {
     // [0.5.0] Split storage per spec 0003: local-marked keys go to
     // localStorage, the rest to data.json. Doing this split on every
     // save keeps the two layers consistent and means no special-case
@@ -570,11 +639,21 @@ export default class TraktrPlugin extends Plugin {
         this.settings[key],
       );
     }
-    const synced = { ...this.settings } as Partial<TraktrSettings>;
-    for (const key of this.localKeys) {
-      delete synced[key];
+
+    // [1.1.0] Persist rebuildable runtime data outside the vault so
+    // Obsidian Sync never sees multi-megabyte cache churn.
+    await this.runtimeStore.save(this.buildRuntimePayload());
+
+    const synced = this.buildSyncedSettingsPayload();
+    const nextJson = JSON.stringify(synced);
+    if (
+      !options.forceDataJsonWrite &&
+      nextJson === this.lastSavedSyncedSettingsJson
+    ) {
+      return;
     }
     await this.saveData(synced);
+    this.lastSavedSyncedSettingsJson = nextJson;
   }
 
   /**
@@ -594,14 +673,17 @@ export default class TraktrPlugin extends Plugin {
   private async refreshSettingsFromDisk(): Promise<void> {
     try {
       const fresh = (await this.loadData()) as Partial<TraktrSettings> | null;
+      const currentRuntime = this.buildRuntimePayload();
       // Wipe optional fields that may have been removed in the new state
       // (e.g. someone cleared their TMDB cache on another device — we'd
       // want this device to reflect that empty cache).
       const stale = this.settings as unknown as Record<string, unknown>;
       for (const k of Object.keys(stale)) delete stale[k];
       Object.assign(this.settings, DEFAULT_SETTINGS, fresh);
+      await this.loadRuntimeState(fresh, currentRuntime);
       // Re-overlay localStorage values on top of the fresh data.json.
       this.applyLocalOverlay();
+      this.lastSavedSyncedSettingsJson = this.serializeSyncedSettings();
     } catch (e) {
       console.warn("[Traktr] Failed to refresh settings from disk:", e);
     }

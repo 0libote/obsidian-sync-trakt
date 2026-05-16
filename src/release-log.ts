@@ -35,6 +35,11 @@ export interface ReleaseLogEntry {
  */
 export const RELEASE_LOG: ReleaseLogEntry[] = [
   {
+    version: "1.1.0",
+    en: "Local runtime cache storage keeps large TMDB and detailed-history caches out of synced data.json.",
+    zh: "本机运行缓存存储：大型 TMDB 与详细观看历史缓存不再写入同步的 data.json。",
+  },
+  {
     version: "1.0.1",
     isBugfix: true,
     en: "Repair malformed plugin frontmatter on existing media notes and avoid YAML parser failures during sync.",

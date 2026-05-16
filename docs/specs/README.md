@@ -76,6 +76,7 @@ draft  →  accepted  →  implemented  →  (superseded)
 | # | Title | Status | Released |
 |---|---|---|---|
 | [0001](0001-incremental-sync.md) | Incremental sync (TMDB cache + Trakt history state) | implemented | 0.2.0 |
+| [0010](0010-local-runtime-cache.md) | Local runtime cache storage | implemented | 1.1.0 |
 
 ## See also
 

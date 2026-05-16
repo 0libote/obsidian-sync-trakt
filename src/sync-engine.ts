@@ -773,8 +773,20 @@ export class SyncEngine {
     const t = getTranslator(this.settings.uiLanguage);
     const state = this.settings.historyState;
     const interval = this.settings.historyFullRefreshIntervalDays;
+    const authoritativeFullRefreshMs = state.lastAuthoritativeFullRefreshAt
+      ? Date.parse(state.lastAuthoritativeFullRefreshAt)
+      : NaN;
+    const localFullRefreshMs = state.lastFullRefreshAt
+      ? Date.parse(state.lastFullRefreshAt)
+      : NaN;
+    const localBehindAuthoritative =
+      !isNaN(authoritativeFullRefreshMs) &&
+      (isNaN(localFullRefreshMs) ||
+        localFullRefreshMs < authoritativeFullRefreshMs);
     const fullRefresh =
-      forceFullRefresh || shouldRunFullRefresh(state, interval);
+      forceFullRefresh ||
+      localBehindAuthoritative ||
+      shouldRunFullRefresh(state, interval);
     const startAt = fullRefresh ? "" : getIncrementalStartAt(state);
 
     onProgress?.(
@@ -799,6 +811,7 @@ export class SyncEngine {
 
     if (fullRefresh) {
       replaceFromFullRefresh(state, all);
+      state.lastAuthoritativeFullRefreshAt = state.lastFullRefreshAt;
     } else {
       mergeHistoryEvents(state, all);
     }

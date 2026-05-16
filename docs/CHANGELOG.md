@@ -7,6 +7,43 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 1.1.0 — 2026-05-16
+
+**Local runtime cache storage.** Reworked cache persistence so
+Obsidian Sync Standard's 5 MB single-file limit no longer applies to
+the plugin's large rebuildable runtime data.
+
+### Added
+
+- `src/runtime-store.ts`, a vault-external runtime cache layer using
+  IndexedDB first and Obsidian localStorage as fallback.
+- Spec [0010](specs/0010-local-runtime-cache.md), documenting the
+  storage split, migration, and multi-device behavior.
+- Tests for slim synced history payloads, runtime-data detection,
+  synced/local history-field merge behavior, and RuntimeStore fallback
+  persistence.
+
+### Changed
+
+- `data.json` now keeps only small cross-device settings and
+  coordination fields. Large `tmdbCache` and detailed-history aggregate
+  data move to local runtime storage.
+- Existing large `data.json` payloads are migrated automatically on
+  first 1.1.0 launch: runtime data is seeded locally, then `data.json`
+  is rewritten as a slim synced payload.
+- `saveSettings()` now skips Obsidian `saveData()` when the slim synced
+  payload is unchanged, reducing version-history churn from frequent
+  auto-sync runs.
+- Detailed-history full refreshes now update a small synced
+  `lastAuthoritativeFullRefreshAt` coordinator so other devices force
+  a local full refresh before writing from stale history caches.
+
+### Migration
+
+No manual action required. Each device keeps its own local runtime
+cache. If that cache is absent or cleared by the platform, the next
+sync rebuilds it from Trakt / TMDB.
+
 ## 1.0.1 — 2026-05-14
 
 ### Fixed

@@ -101,6 +101,13 @@ import {
   entriesNewerThan,
   isVersionNewer,
 } from "../src/release-log";
+import {
+  buildSlimSyncedHistoryState,
+  mergeSyncedHistoryFields,
+  RuntimeStore,
+  syncedPayloadContainsRuntimeData,
+  RUNTIME_STORAGE_SCHEMA_VERSION,
+} from "../src/runtime-store";
 
 let failures = 0;
 let passes = 0;
@@ -3383,6 +3390,200 @@ void (async () => {
       const lm2025 = computeLastMonth("2025-03-10");
       assertEq(lm2025.end, "2025-02-28", "lastMonth(Mar 10, 2025) end = Feb 28");
     }
+  }
+
+  console.log("\n[67] local runtime cache storage — slim synced payload helpers");
+  {
+    const runtimeHistory: HistoryState = {
+      ...EMPTY_HISTORY_STATE,
+      byMovie: { 1: ["2026-05-01T01:00:00.000Z"] },
+      byShow: {
+        2: [
+          {
+            season: 1,
+            episode: 3,
+            title: "Pilot",
+            watched_at: ["2026-05-02T01:00:00.000Z"],
+          },
+        ],
+      },
+      knownEventIds: [10, 11],
+      lastIncrementalSyncAt: "2026-05-02T01:00:00.000Z",
+      lastFullRefreshAt: "2026-05-10T01:00:00.000Z",
+      lastDailyNoteSyncedAt: "2026-05-12",
+      lastAuthoritativeFullRefreshAt: "2026-05-10T01:00:00.000Z",
+      lastReleaseNoticeVersion: "1.0.0",
+    };
+
+    const slim = buildSlimSyncedHistoryState(runtimeHistory);
+    assertEq(slim.byMovie, {}, "slim history removes movie aggregate");
+    assertEq(slim.byShow, {}, "slim history removes show aggregate");
+    assertEq(slim.knownEventIds, [], "slim history removes event id set");
+    assertEq(slim.lastIncrementalSyncAt, "", "slim history removes local incremental cursor");
+    assertEq(slim.lastFullRefreshAt, "", "slim history removes local full-refresh cursor");
+    assertEq(
+      slim.lastDailyNoteSyncedAt,
+      "2026-05-12",
+      "slim history preserves Daily Notes cursor",
+    );
+    assertEq(
+      slim.lastAuthoritativeFullRefreshAt,
+      "2026-05-10T01:00:00.000Z",
+      "slim history preserves authoritative full-refresh coordinator",
+    );
+    assertEq(
+      slim.lastReleaseNoticeVersion,
+      "1.0.0",
+      "slim history preserves release notice dismissal",
+    );
+
+    assertTrue(
+      syncedPayloadContainsRuntimeData({
+        tmdbCache: {
+          "movie:1:default": {
+            poster_url: "poster",
+            translation: null,
+            cached_at: 1,
+            expires_at: 2,
+          },
+        },
+      }),
+      "runtime-data detector catches non-empty TMDB cache",
+    );
+    assertTrue(
+      syncedPayloadContainsRuntimeData({ historyState: runtimeHistory }),
+      "runtime-data detector catches populated history aggregates",
+    );
+    assertTrue(
+      !syncedPayloadContainsRuntimeData({ tmdbCache: {}, historyState: slim }),
+      "runtime-data detector ignores slim synced placeholders",
+    );
+
+    const merged = mergeSyncedHistoryFields(runtimeHistory, {
+      lastDailyNoteSyncedAt: "2026-05-16",
+      lastAuthoritativeFullRefreshAt: "2026-05-15T01:00:00.000Z",
+      lastReleaseNoticeVersion: "1.1.0",
+    });
+    assertEq(
+      merged.byMovie,
+      runtimeHistory.byMovie,
+      "merge keeps local movie aggregate",
+    );
+    assertEq(
+      merged.lastDailyNoteSyncedAt,
+      "2026-05-16",
+      "merge overlays synced Daily Notes cursor",
+    );
+    assertEq(
+      merged.lastAuthoritativeFullRefreshAt,
+      "2026-05-15T01:00:00.000Z",
+      "merge overlays synced authoritative refresh timestamp",
+    );
+    assertEq(
+      merged.lastReleaseNoticeVersion,
+      "1.1.0",
+      "merge overlays synced release notice dismissal",
+    );
+  }
+
+  console.log("\n[68] RuntimeStore — localStorage fallback round trip");
+  {
+    const stub = await import("./stub-obsidian");
+    const app = new stub.App();
+    const store = new RuntimeStore(app as never, "test-runtime-key");
+    const payload = {
+      schemaVersion: RUNTIME_STORAGE_SCHEMA_VERSION,
+      tmdbCache: {
+        "movie:155:zh-CN": {
+          poster_url: "https://image.tmdb.org/t/p/w342/demo.jpg",
+          translation: {
+            title: "黑暗骑士",
+            overview: "overview",
+            tagline: "tagline",
+            genres: ["动作"],
+          },
+          cached_at: 1,
+          expires_at: 2,
+        },
+      },
+      historyState: {
+        ...EMPTY_HISTORY_STATE,
+        byMovie: { 155: ["2026-05-01T01:00:00.000Z"] },
+        knownEventIds: [123],
+        lastIncrementalSyncAt: "2026-05-01T01:00:00.000Z",
+      },
+    };
+
+    await store.save(payload);
+    assertEq(store.backend, "localStorage", "RuntimeStore falls back to localStorage in Node");
+    assertEq(await store.load(), payload, "RuntimeStore loads saved fallback payload");
+    await store.clear();
+    assertEq(await store.load(), null, "RuntimeStore clear removes fallback payload");
+  }
+
+  console.log("\n[69] saveSettings — skips unchanged slim data.json payload");
+  {
+    const stub = await import("./stub-obsidian");
+    const mainModule = await import("../src/main");
+    const app = new stub.App();
+    const plugin = new mainModule.default() as never;
+    const mutable = plugin as {
+      app: unknown;
+      settings: TraktrSettings;
+      localKeys: Set<string>;
+      runtimeStore: RuntimeStore;
+      lastSavedSyncedSettingsJson: string;
+      buildSyncedSettingsPayload: () => Partial<TraktrSettings>;
+      saveData: (data: unknown) => Promise<void>;
+      saveSettings: () => Promise<void>;
+    };
+    mutable.app = app;
+    mutable.settings = withSettings({
+      tmdbCache: {
+        "movie:1:default": {
+          poster_url: "poster",
+          translation: null,
+          cached_at: 1,
+          expires_at: 2,
+        },
+      },
+      historyState: {
+        ...EMPTY_HISTORY_STATE,
+        byMovie: { 1: ["2026-05-01T01:00:00.000Z"] },
+        knownEventIds: [1],
+        lastIncrementalSyncAt: "2026-05-01T01:00:00.000Z",
+        lastDailyNoteSyncedAt: "2026-05-02",
+      },
+    });
+    mutable.localKeys = new Set();
+    mutable.runtimeStore = new RuntimeStore(app as never, "test-save-settings");
+    mutable.lastSavedSyncedSettingsJson = JSON.stringify(
+      mutable.buildSyncedSettingsPayload(),
+    );
+    let saveDataCalls = 0;
+    let savedPayload: Partial<TraktrSettings> | null = null;
+    mutable.saveData = async (data: unknown) => {
+      saveDataCalls++;
+      savedPayload = data as Partial<TraktrSettings>;
+    };
+
+    await mutable.saveSettings();
+    assertEq(saveDataCalls, 0, "unchanged slim payload skips saveData");
+
+    mutable.settings.folder = "Trakt Notes";
+    await mutable.saveSettings();
+    assertEq(saveDataCalls, 1, "changed synced setting writes data.json once");
+    assertEq(savedPayload?.tmdbCache, {}, "saved data.json has empty tmdbCache placeholder");
+    assertEq(
+      savedPayload?.historyState?.knownEventIds,
+      [],
+      "saved data.json omits local history event ids",
+    );
+    assertEq(
+      savedPayload?.historyState?.lastDailyNoteSyncedAt,
+      "2026-05-02",
+      "saved data.json preserves small synced history field",
+    );
   }
 
   console.log(`\n${"=".repeat(60)}`);

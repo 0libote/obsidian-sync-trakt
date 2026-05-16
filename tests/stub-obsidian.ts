@@ -136,8 +136,19 @@ export class TFolder {
 export class App {
   vault: unknown;
   fileManager: unknown;
+  private storage = new Map<string, unknown>();
   constructor() {
-    this.vault = {};
+    this.vault = { getName: () => "test-vault" };
     this.fileManager = {};
+  }
+  loadLocalStorage(key: string): unknown {
+    return this.storage.has(key) ? this.storage.get(key) : null;
+  }
+  saveLocalStorage(key: string, value: unknown): void {
+    if (value === null || value === undefined) {
+      this.storage.delete(key);
+    } else {
+      this.storage.set(key, value);
+    }
   }
 }

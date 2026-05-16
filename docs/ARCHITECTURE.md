@@ -5,7 +5,7 @@ Reads top-to-bottom or jump via the table of contents. Companion to
 the [design specs](specs/) — specs explain *why*, this doc explains
 *what is*.
 
-**Currency**: this doc reflects the codebase as of 0.2.0. When you ship
+**Currency**: this doc reflects the codebase as of 1.1.0. When you ship
 behavior changes that affect the architecture, update this doc in the
 same commit.
 
@@ -36,6 +36,7 @@ obsidian-sync-trakt/
 │   ├── trakt-api.ts        # Trakt API client: device auth flow, sync endpoints, history, translations
 │   ├── trakt-auth.ts       # AuthModal (device flow UI), token refresh helper
 │   ├── tmdb-api.ts         # TMDB client: metadata fetch, translation picker, cache layer
+│   ├── runtime-store.ts    # Vault-external runtime cache persistence (IndexedDB + fallback)
 │   ├── note-renderer.ts    # Build frontmatter data, render body templates, manage body markers
 │   ├── types.ts            # Shared type definitions (Trakt + TMDB shapes, NormalizedItem, history state)
 │   └── utils.ts            # Generic helpers: filename sanitize, template render, YAML write/parse, concurrency limiter
@@ -90,6 +91,10 @@ obsidian-sync-trakt/
                                   ┌──────────┐
                                   │ types.ts │
                                   └──────────┘
+
+`main.ts` also owns `runtime-store.ts`: settings are loaded from
+vault-synced `data.json`, then overlaid with vault-external runtime
+cache before `SyncEngine` is constructed.
 ```
 
 **Acyclic.** `types.ts` and `utils.ts` are pure dependencies of
@@ -228,10 +233,14 @@ interface NormalizedItem {
 }
 ```
 
-### TraktrSettings (persistent in data.json)
+### TraktrSettings (in-memory session state)
 
-The plugin's complete persistent state. Loaded once at `onload()`,
+The plugin's complete in-memory state. Loaded once at `onload()`,
 mutated in place during the session, written back via `saveSettings()`.
+As of 1.1.0 this is intentionally larger than vault-synced
+`data.json`: `tmdbCache` and the large portions of `historyState` live
+in vault-external local runtime storage and are overlaid into
+`this.settings` after synced settings load.
 
 Highlighted new fields in 0.2.0 are marked `[0.2.0]`:
 
@@ -334,6 +343,44 @@ interface HistoryState {
 ```
 
 ## 5. Caching layers
+
+As of 1.1.0, cache architecture is split by sync semantics.
+
+### Vault-synced settings (`data.json`)
+
+`.obsidian/plugins/sync-trakt/data.json` stores small cross-device state:
+auth tokens, API keys, templates, folders, source toggles, language
+settings, and small coordination fields. It deliberately does not store
+large runtime cache contents. `saveSettings()` writes a slim payload and
+skips `saveData()` entirely when that slim payload has not changed.
+
+The synced `historyState` keeps empty aggregate placeholders plus small
+fields such as `lastDailyNoteSyncedAt`, `lastReleaseNoticeVersion`, and
+`lastAuthoritativeFullRefreshAt`.
+
+### Local runtime cache
+
+`src/runtime-store.ts` stores rebuildable runtime data outside the vault:
+
+- `tmdbCache`
+- `historyState.byMovie`
+- `historyState.byShow`
+- `historyState.knownEventIds`
+- local history incremental/full-refresh cursors
+
+The primary backend is IndexedDB, keyed by plugin id plus vault name.
+IndexedDB persists across normal app restarts on desktop and mobile, but
+because it lives in Obsidian's application data sandbox rather than the
+vault, Obsidian Sync does not upload it and the 5 MB per-file Sync
+Standard limit does not apply. If IndexedDB is unavailable, the plugin
+falls back to Obsidian's localStorage API.
+
+Each device builds and maintains its own runtime cache. Multi-device
+compatibility comes from syncing the small settings layer and the final
+Markdown notes, plus a small `lastAuthoritativeFullRefreshAt`
+coordinator: when one device detects Trakt-side history deletions during
+a full refresh, other devices force their own full refresh before writing
+from older local caches.
 
 Two independent caches with different concerns and lifetimes.
 
