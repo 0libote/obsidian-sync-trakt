@@ -52,6 +52,7 @@ export interface TmdbMovieResponse {
   original_name?: string;
   title?: string;
   name?: string;
+  original_language?: string;
   overview?: string;
   tagline?: string;
   genres?: { name?: string }[];
@@ -467,6 +468,14 @@ export function pickBestTranslation(
   const mainOriginal = (originalField || "").trim();
   const mainOverview = (data.overview || "").trim();
   const mainTagline = (data.tagline || "").trim();
+  const originalLanguage = (data.original_language || "")
+    .split("-")[0]
+    .toLowerCase();
+  const requestedLanguage = (language || "").split("-")[0].toLowerCase();
+  const mainTitleUsableForRequestedLanguage =
+    mainTitle.length > 0 &&
+    (mainTitle !== mainOriginal ||
+      (!!requestedLanguage && requestedLanguage === originalLanguage));
   const mainGenres = (data.genres || [])
     .map((g) => (g.name || "").trim())
     .filter((n) => n.length > 0);
@@ -474,15 +483,24 @@ export function pickBestTranslation(
   // [0.9.0] Strict mode — never substitute country variants.
   if (fallbackLanguage) {
     const all = data.translations?.translations || [];
+    const primary = pickStrictTmdb(all, language, mediaType, mainGenres);
+    if (primary) {
+      const title =
+        primary.title ||
+        (mainTitleUsableForRequestedLanguage ? mainTitle : primary.title);
+      return {
+        ...primary,
+        title,
+      };
+    }
     return (
-      pickStrictTmdb(all, language, mediaType, mainGenres) ||
       pickStrictTmdb(all, fallbackLanguage, mediaType, mainGenres) ||
       null
     );
   }
 
   const mainLooksLocalized =
-    mainTitle.length > 0 && mainTitle !== mainOriginal;
+    mainTitleUsableForRequestedLanguage;
 
   const candidates = orderCandidates(
     data.translations?.translations || [],

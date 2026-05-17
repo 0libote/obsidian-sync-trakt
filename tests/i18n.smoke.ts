@@ -3150,6 +3150,56 @@ void (async () => {
     );
   }
 
+  // ── Test 60b: strict TMDB keeps original-language title when CN title blank ─
+  console.log(
+    "\n[60b] pickBestTranslation — strict TMDB keeps original-language TV title",
+  );
+  {
+    const sunsets: TmdbMovieResponse = {
+      poster_path: "/sunsets.jpg",
+      original_name: "钢铁森林",
+      name: "钢铁森林",
+      original_language: "zh",
+      overview: "海州市通河岸边，五年前“8·17”大案的全新线索浮出水面。",
+      genres: [{ id: 18, name: "剧情" }],
+      translations: {
+        translations: [
+          {
+            iso_639_1: "zh",
+            iso_3166_1: "CN",
+            data: {
+              name: "",
+              overview:
+                "海州市通河岸边，五年前“8·17”大案的全新线索浮出水面。",
+              tagline: "",
+            },
+          },
+          {
+            iso_639_1: "en",
+            iso_3166_1: "US",
+            data: {
+              name: "Sunsets Secrets Regrets",
+              overview: "An English overview",
+              tagline: "",
+            },
+          },
+        ],
+      },
+    };
+
+    const cnStrict = pickBestTranslation(sunsets, "zh-CN", "tv", "en");
+    assertEq(
+      cnStrict?.title,
+      "钢铁森林",
+      "strict zh-CN uses top-level original-language title when exact CN title is blank",
+    );
+    assertEq(
+      cnStrict?.overview,
+      "海州市通河岸边，五年前“8·17”大案的全新线索浮出水面。",
+      "strict zh-CN keeps exact CN overview",
+    );
+  }
+
   // ── Test 61: [1.0.0 / spec 0009] disambiguatedFilename self-exclusion ─
   // The rename-time closure passed to disambiguatedFilename must treat the
   // file being renamed as NOT-a-collision (otherwise the disambiguator
