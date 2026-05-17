@@ -8,6 +8,10 @@ import type {
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
+const SIMPLIFIED_ONLY_TITLE_CHARS =
+  "钢铁国剧话后发云龙马爱体边这过东叶万为无乐们见点车长汉湾台广丽门书";
+const TRADITIONAL_ONLY_TITLE_CHARS =
+  "鋼鐵國劇話後發雲龍馬愛體邊這過東葉萬為無樂們見點車長漢灣臺廣麗門書";
 
 /**
  * One day in ms. Used for TTL math + jitter.
@@ -468,16 +472,14 @@ export function pickBestTranslation(
   const mainOriginal = (originalField || "").trim();
   const mainOverview = (data.overview || "").trim();
   const mainTagline = (data.tagline || "").trim();
-  const originalLanguage = (data.original_language || "")
-    .split("-")[0]
-    .toLowerCase();
-  const requestedLanguage = (language || "").split("-")[0].toLowerCase();
   const mainTitleDiffersFromOriginal =
     mainTitle.length > 0 && mainTitle !== mainOriginal;
   const mainTitleMatchesRequestedOriginalLanguage =
-    mainTitle.length > 0 &&
-    !!requestedLanguage &&
-    requestedLanguage === originalLanguage;
+    titleMatchesRequestedOriginalLocale(
+      mainTitle,
+      language,
+      data.original_language || "",
+    );
   const mainTitleUsableForRequestedLanguage =
     mainTitleDiffersFromOriginal || mainTitleMatchesRequestedOriginalLanguage;
   const mainGenres = (data.genres || [])
@@ -563,6 +565,60 @@ export function pickBestTranslation(
     tagline: candidateTagline,
     genres: mainGenres,
   };
+}
+
+function baseLanguageCode(language: string): string {
+  return (language || "").split("-")[0].toLowerCase();
+}
+
+function chineseScriptPreference(
+  language: string,
+): "simplified" | "traditional" | "unspecified" {
+  const subtags = (language || "").split("-");
+  const normalized = subtags.map((part) => part.toLowerCase());
+  if (normalized.includes("hans")) return "simplified";
+  if (normalized.includes("hant")) return "traditional";
+
+  const region = subtags
+    .slice(1)
+    .find((part) => /^[a-zA-Z]{2}$/.test(part))
+    ?.toUpperCase();
+  if (region === "CN" || region === "SG" || region === "MY") {
+    return "simplified";
+  }
+  if (region === "TW" || region === "HK" || region === "MO") {
+    return "traditional";
+  }
+  return "unspecified";
+}
+
+function containsAnyChar(value: string, chars: string): boolean {
+  for (const char of chars) {
+    if (value.includes(char)) return true;
+  }
+  return false;
+}
+
+function titleMatchesRequestedOriginalLocale(
+  title: string,
+  requestedLanguage: string,
+  originalLanguage: string,
+): boolean {
+  const requestedBase = baseLanguageCode(requestedLanguage);
+  const originalBase = baseLanguageCode(originalLanguage);
+  if (!title || !requestedBase || requestedBase !== originalBase) {
+    return false;
+  }
+  if (requestedBase !== "zh") return true;
+
+  const preference = chineseScriptPreference(requestedLanguage);
+  if (preference === "simplified") {
+    return !containsAnyChar(title, TRADITIONAL_ONLY_TITLE_CHARS);
+  }
+  if (preference === "traditional") {
+    return !containsAnyChar(title, SIMPLIFIED_ONLY_TITLE_CHARS);
+  }
+  return true;
 }
 
 /**

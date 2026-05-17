@@ -3230,6 +3230,40 @@ void (async () => {
       "strict zh-TW uses top-level original-language title when exact title is blank",
     );
 
+    const twRejectsSimplifiedOriginal = pickBestTranslation(
+      makeOriginalLanguageTv(
+        "钢铁森林",
+        "zh",
+        "TW",
+        "故事以海州市通河岸邊的一起無名女屍案開篇。",
+      ),
+      "zh-TW",
+      "tv",
+      "en",
+    );
+    assertEq(
+      twRejectsSimplifiedOriginal?.title,
+      "",
+      "strict zh-TW does not treat a Simplified Chinese original title as Traditional Chinese",
+    );
+
+    const cnRejectsTraditionalOriginal = pickBestTranslation(
+      makeOriginalLanguageTv(
+        "鋼鐵森林",
+        "zh",
+        "CN",
+        "海州市通河岸边，五年前“8·17”大案的全新线索浮出水面。",
+      ),
+      "zh-CN",
+      "tv",
+      "en",
+    );
+    assertEq(
+      cnRejectsTraditionalOriginal?.title,
+      "",
+      "strict zh-CN does not treat a Traditional Chinese original title as Simplified Chinese",
+    );
+
     const jaStrict = pickBestTranslation(
       makeOriginalLanguageTv(
         "孤独のグルメ",
