@@ -173,7 +173,7 @@ Tag notes are topic files you link to from your notes, creating a graph of conne
 | Daily Notes folder | _(blank)_ | Folder containing Daily Note files. Blank means vault root. |
 | Daily Notes filename format | `YYYY-MM-DD` | Moment.js format used to locate a Daily Note for a date. |
 | Start marker / End marker | `%% trakt:daily:start %%` / `%% trakt:daily:end %%` | The plugin only manages content between these markers. |
-| Auto-sync Daily Notes only | off | Periodically refreshes the Trakt/TMDB data needed for Daily Notes and updates existing Daily Note files without creating, renaming, deleting, or rewriting media notes. Device-local by default. |
+| Auto-update Daily Notes without media-note sync | off | Periodically refreshes the Trakt/TMDB data needed for Daily Notes and updates existing Daily Note files without creating, renaming, deleting, or rewriting media notes. Can be enabled together with full Auto-sync; both timers share one lock. Device-local by default. |
 | Daily Notes auto-sync interval | `60 min` | How often the Daily Notes-only timer runs. Device-local by default. |
 | Manual backfill | _(button)_ | Opens a date-range picker and fills existing Daily Notes in add-only mode for past days. |
 | Today write mode | Default | Default replaces today's marker region from the latest snapshot; incremental mode appends new event lines and preserves manual annotations inside the markers. |
@@ -358,7 +358,7 @@ When you switch **Metadata language** and run sync again:
 - **Manual**: command **Traktr: Sync** (accessible via the command palette)
 - **On startup**: enable **Sync on startup** in settings (runs 5 seconds after Obsidian loads)
 - **Scheduled**: enable **Auto-sync** and set an interval
-- **Daily Notes-only scheduled**: enable **Daily Notes → Auto-sync Daily Notes only** to update Daily Notes without media-note writes
+- **Daily Notes-only scheduled**: enable **Daily Notes → Auto-update Daily Notes without media-note sync** to update Daily Notes without media-note writes
 - **Force full history refresh**: command **Traktr: Force full watch-history refresh** — bypasses the periodic interval and immediately re-pulls the entire Trakt history. Useful when you've just deleted a wrong scrobble on Trakt and want the plugin to detect it now
 - **Clear TMDB cache**: command **Traktr: Clear TMDB metadata cache** — empties every cached TMDB entry. The next sync re-fetches all metadata from TMDB. Same effect as the Settings → TMDB → **Clear cache** button
 

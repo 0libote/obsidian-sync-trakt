@@ -84,6 +84,11 @@ export const DEFAULT_LOCAL_KEYS: ReadonlyArray<LocalEligibleKey> = [
   "dailyNotesAutoSyncIntervalMinutes",
 ];
 
+export const DEFAULT_LOCAL_KEYS_ADDED_IN_SCHEMA_2: ReadonlyArray<LocalEligibleKey> = [
+  "dailyNotesAutoSyncEnabled",
+  "dailyNotesAutoSyncIntervalMinutes",
+];
+
 export type ConfirmDangerousActionOptions = {
   title: StringKey;
   body: StringKey;
@@ -167,6 +172,15 @@ export const LOCAL_STORAGE_PREFIX = "sync-trakt:";
 
 /** Key under which the list of currently-local setting keys is stored. */
 export const LOCAL_KEYS_STORAGE_KEY = `${LOCAL_STORAGE_PREFIX}_localKeys`;
+
+/**
+ * Version marker for one-time migrations of the device-local key list.
+ * Schema 1 was implicit in 0.5.x. Schema 2 adds the 1.2.x Daily Notes
+ * timer keys to existing installs without re-adding them after a user
+ * later chooses to sync those settings.
+ */
+export const LOCAL_KEYS_SCHEMA_VERSION = 2;
+export const LOCAL_KEYS_SCHEMA_STORAGE_KEY = `${LOCAL_STORAGE_PREFIX}_localKeysSchemaVersion`;
 
 /** Preset language options shown in the Localization (metadata) dropdown.
  * The Note template language dropdown reuses this same list for symmetry,

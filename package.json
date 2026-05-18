@@ -14,6 +14,7 @@
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "release": "bash scripts/release.sh",
     "lint": "eslint src/",
+    "check:release-i18n": "node scripts/check-release-i18n.mjs",
     "test:i18n": "esbuild tests/i18n.smoke.ts --bundle --platform=node --format=cjs --alias:obsidian=./tests/stub-obsidian.ts --outfile=tests/.bundled.cjs --log-level=warning && node tests/.bundled.cjs"
   },
   "keywords": [

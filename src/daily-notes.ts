@@ -492,7 +492,12 @@ export function renderMarkerBlock(
 // ── Catch-up loop ──
 
 export interface DateProcessResult {
-  status: "skipped_no_file" | "skipped_has_markers" | "wrote_new" | "overwrote";
+  status:
+    | "skipped_no_file"
+    | "skipped_has_markers"
+    | "wrote_new"
+    | "overwrote"
+    | "unchanged";
 }
 
 /** All the dependencies the catch-up algorithm needs from the host (Plugin). */
@@ -608,6 +613,13 @@ export async function processDate(
     if (hasMarkers) {
       // Empty region present — replace in place so we don't end up with
       // a duplicate marker pair below the original.
+      const next = replaceMarkerBlock(
+        content,
+        settings.dailyNotesMarkerStart,
+        settings.dailyNotesMarkerEnd,
+        block,
+      );
+      if (next === content) return { status: "unchanged" };
       await app.vault.process(file, (old) =>
         replaceMarkerBlock(
           old,
@@ -617,6 +629,8 @@ export async function processDate(
         ),
       );
     } else {
+      const next = appendMarkerBlock(content, block);
+      if (next === content) return { status: "unchanged" };
       await app.vault.process(file, (old) => appendMarkerBlock(old, block));
     }
     return { status: "wrote_new" };
@@ -642,8 +656,15 @@ export async function processDate(
       // Nothing to add — preserve the file byte-for-byte. Without this
       // check we'd still go through vault.process and the diff layer
       // would touch the file unnecessarily.
-      return { status: "overwrote" };
+      return { status: "unchanged" };
     }
+    const next = mergeMarkerBlockIncremental(
+      content,
+      settings.dailyNotesMarkerStart,
+      settings.dailyNotesMarkerEnd,
+      newEventLines,
+    );
+    if (next === content) return { status: "unchanged" };
     await app.vault.process(file, (old) =>
       mergeMarkerBlockIncremental(
         old,
@@ -662,6 +683,13 @@ export async function processDate(
     lang,
   );
   if (hasMarkers) {
+    const next = replaceMarkerBlock(
+      content,
+      settings.dailyNotesMarkerStart,
+      settings.dailyNotesMarkerEnd,
+      block,
+    );
+    if (next === content) return { status: "unchanged" };
     await app.vault.process(file, (old) =>
       replaceMarkerBlock(
         old,
@@ -672,6 +700,8 @@ export async function processDate(
     );
     return { status: "overwrote" };
   } else {
+    const next = appendMarkerBlock(content, block);
+    if (next === content) return { status: "unchanged" };
     await app.vault.process(file, (old) => appendMarkerBlock(old, block));
     return { status: "wrote_new" };
   }

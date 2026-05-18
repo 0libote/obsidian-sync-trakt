@@ -2,7 +2,10 @@ import { Notice, Plugin, normalizePath } from "obsidian";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_LOCAL_KEYS,
+  DEFAULT_LOCAL_KEYS_ADDED_IN_SCHEMA_2,
   LOCAL_ELIGIBLE_KEYS,
+  LOCAL_KEYS_SCHEMA_STORAGE_KEY,
+  LOCAL_KEYS_SCHEMA_VERSION,
   LOCAL_KEYS_STORAGE_KEY,
   LOCAL_STORAGE_PREFIX,
   TraktrSettingTab,
@@ -115,7 +118,7 @@ export default class TraktrPlugin extends Plugin {
             getMergedItems: () => this.lastMergedItems,
           };
           const result = await processCatchUp(host);
-          this.showDailyCatchUpNotice(result);
+          return this.formatDailyCatchUpNoticeSuffix(result);
         }
       },
     );
@@ -353,19 +356,29 @@ export default class TraktrPlugin extends Plugin {
 
   private async runDailyNotesSyncWithProgress(
     scope: "today" | "catch-up",
+    options: {
+      showProgressNotice?: boolean;
+      suppressAlreadyRunningNotice?: boolean;
+    } = {},
   ): Promise<void> {
+    const showProgressNotice = options.showProgressNotice !== false;
     const tNow = getTranslator(this.settings.uiLanguage);
     const initialMsg = tNow("status.dailySyncing");
-    const progressNotice = new Notice(
-      `${tNow("status.prefix")}${initialMsg}`,
-      0,
-    );
+    const progressNotice = showProgressNotice
+      ? new Notice(`${tNow("status.prefix")}${initialMsg}`, 0)
+      : null;
     this.updateStatusBar(initialMsg);
     try {
-      const dataResult = await this.syncEngine.syncDailyNotesData((msg) => {
-        this.updateStatusBar(msg);
-        progressNotice.setMessage(`${tNow("status.prefix")}${msg}`);
-      });
+      const dataResult = await this.syncEngine.syncDailyNotesData(
+        (msg) => {
+          this.updateStatusBar(msg);
+          progressNotice?.setMessage(`${tNow("status.prefix")}${msg}`);
+        },
+        {
+          suppressAlreadyRunningNotice:
+            options.suppressAlreadyRunningNotice === true,
+        },
+      );
       if (dataResult.status !== "updated") return;
 
       this.lastMergedItems = dataResult.items;
@@ -379,19 +392,26 @@ export default class TraktrPlugin extends Plugin {
       if (scope === "today") {
         const today = localTodayISODate();
         const result = await processDate(host, today, "today");
-        const key =
-          result.status === "wrote_new" || result.status === "overwrote"
-            ? "daily.today.updated"
-            : "daily.today.noFile";
+        const key = this.dailyTodayNoticeKey(result.status);
         new Notice(tNow(key), 5000);
       } else {
         const result = await processCatchUp(host);
         this.showDailyCatchUpNotice(result);
       }
     } finally {
-      progressNotice.hide();
+      progressNotice?.hide();
       this.updateStatusBar("");
     }
+  }
+
+  private dailyTodayNoticeKey(
+    status: Awaited<ReturnType<typeof processDate>>["status"],
+  ): "daily.today.updated" | "daily.today.unchanged" | "daily.today.noFile" {
+    if (status === "wrote_new" || status === "overwrote") {
+      return "daily.today.updated";
+    }
+    if (status === "unchanged") return "daily.today.unchanged";
+    return "daily.today.noFile";
   }
 
   private showDailyCatchUpNotice(
@@ -410,6 +430,22 @@ export default class TraktrPlugin extends Plugin {
         : "daily.catchUpDone.todayOnly"
       : "daily.catchUpDone.pastOnly";
     new Notice(t(key, { wrote: result.pastWrote }), 5000);
+  }
+
+  private formatDailyCatchUpNoticeSuffix(
+    result: Awaited<ReturnType<typeof processCatchUp>>,
+  ): string {
+    const todayUpdated =
+      result.todayMode === "wrote_new" || result.todayMode === "overwrote";
+    if (!todayUpdated && result.pastWrote === 0) return "";
+
+    const t = getTranslator(this.settings.uiLanguage);
+    const key = todayUpdated
+      ? result.pastWrote > 0
+        ? "syncResult.dailyNotes.withPast"
+        : "syncResult.dailyNotes.todayOnly"
+      : "syncResult.dailyNotes.pastOnly";
+    return t(key, { wrote: result.pastWrote });
   }
 
   async loadSettings() {
@@ -480,13 +516,53 @@ export default class TraktrPlugin extends Plugin {
         "[Traktr] First 0.5.0 launch — seeded device-local keys:",
         localKeys,
       );
+      this.app.saveLocalStorage(
+        LOCAL_KEYS_SCHEMA_STORAGE_KEY,
+        LOCAL_KEYS_SCHEMA_VERSION,
+      );
     } else {
       // Filter to currently-eligible keys (defensive — in case
       // LOCAL_ELIGIBLE_KEYS shrunk in a future release).
       localKeys = raw.filter((k): k is LocalEligibleKey => eligible.has(k));
+      localKeys = this.migrateLocalKeysSchema(localKeys);
     }
     this.localKeys = new Set(localKeys);
     this.applyLocalOverlay();
+  }
+
+  private migrateLocalKeysSchema(keys: LocalEligibleKey[]): LocalEligibleKey[] {
+    const rawVersion: unknown = this.app.loadLocalStorage(
+      LOCAL_KEYS_SCHEMA_STORAGE_KEY,
+    );
+    const currentVersion =
+      typeof rawVersion === "number" && Number.isFinite(rawVersion)
+        ? rawVersion
+        : 1;
+
+    const next = [...keys];
+    let changed = false;
+
+    if (currentVersion < 2) {
+      for (const key of DEFAULT_LOCAL_KEYS_ADDED_IN_SCHEMA_2) {
+        if (next.includes(key)) continue;
+        next.push(key);
+        this.app.saveLocalStorage(
+          `${LOCAL_STORAGE_PREFIX}${key}`,
+          this.settings[key],
+        );
+        changed = true;
+      }
+    }
+
+    if (changed || currentVersion < LOCAL_KEYS_SCHEMA_VERSION) {
+      this.app.saveLocalStorage(LOCAL_KEYS_STORAGE_KEY, next);
+      this.app.saveLocalStorage(
+        LOCAL_KEYS_SCHEMA_STORAGE_KEY,
+        LOCAL_KEYS_SCHEMA_VERSION,
+      );
+    }
+
+    return next;
   }
 
   /**
@@ -819,7 +895,10 @@ export default class TraktrPlugin extends Plugin {
       this.dailyNotesAutoSyncIntervalId = window.setInterval(() => {
         void (async () => {
           try {
-            await this.runDailyNotesSyncWithProgress("catch-up");
+            await this.runDailyNotesSyncWithProgress("catch-up", {
+              showProgressNotice: false,
+              suppressAlreadyRunningNotice: true,
+            });
           } catch (e) {
             console.error("Trakt Daily Notes auto-sync failed:", e);
             this.updateStatusBar("");

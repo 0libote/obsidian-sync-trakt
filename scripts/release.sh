@@ -9,6 +9,8 @@
 # Usage:  ./scripts/release.sh <version>          (e.g. 1.0.1)
 # Skip the local build step if you already have a fresh main.js:
 #         RELEASE_SKIP_BUILD=1 ./scripts/release.sh 1.0.1
+# Skip local lint / tests / release i18n checks:
+#         RELEASE_SKIP_CHECKS=1 ./scripts/release.sh 1.0.1
 # Skip the local "gh release create" step (CI / workflow will do it):
 #         RELEASE_SKIP_GH=1 ./scripts/release.sh 1.0.1
 
@@ -68,7 +70,17 @@ node -e "
   fs.writeFileSync('versions.json', JSON.stringify(versions, null, 2) + '\n');
 "
 
-# 4. Build main.js — produces the artifact we'll attach to the release.
+# 4. Release gates. These run after the version bump so the changelog,
+#    in-app release log, UI strings, and localized docs are checked
+#    against the exact version being released.
+if [ -z "${RELEASE_SKIP_CHECKS:-}" ]; then
+  echo "▶ Running release checks..."
+  npm run lint
+  npm run test:i18n
+  npm run check:release-i18n
+fi
+
+# 5. Build main.js — produces the artifact we'll attach to the release.
 #    Skip when RELEASE_SKIP_BUILD=1 is set (assumes a fresh main.js exists).
 if [ -z "${RELEASE_SKIP_BUILD:-}" ]; then
   echo "▶ Building..."
@@ -84,18 +96,18 @@ for asset in main.js manifest.json styles.css; do
   fi
 done
 
-# 5. Commit the version bump
+# 6. Commit the version bump
 git add manifest.json package.json package-lock.json versions.json
 git commit -m "chore: release $VERSION"
 
-# 6. Tag the release commit
+# 7. Tag the release commit
 git tag -a "$VERSION" -m "$VERSION"
 
-# 7. Push commit + tag
+# 8. Push commit + tag
 git push origin main
 git push origin "$VERSION"
 
-# 8. Create the GitHub Release locally (draft, with the three Obsidian assets)
+# 9. Create the GitHub Release locally (draft, with the three Obsidian assets)
 if [ -z "${RELEASE_SKIP_GH:-}" ]; then
   echo "▶ Creating draft GitHub Release..."
   # Resolve the GitHub repo from the `origin` remote URL explicitly. Without

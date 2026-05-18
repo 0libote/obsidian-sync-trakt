@@ -34,9 +34,23 @@ timer without running the full media-note reconciliation pipeline.
 - Trakt auth success, disconnect, and visibility-triggered settings
   reloads now reconfigure both the full auto-sync timer and the Daily
   Notes-only timer.
+- The Daily Notes auto-sync label now says that it updates Daily Notes
+  without media-note sync, and its description explicitly says it can be
+  enabled together with full Auto-sync.
+- Full sync now folds the Daily Notes catch-up result into the full sync
+  completion notice instead of showing two separate final notices.
 - Architecture, manual, and README docs now explain the split between
   vault-synced settings, local runtime caches, full auto-sync, and
   Daily Notes-only auto-sync.
+
+### Fixed
+
+- Existing installs that already had a `_localKeys` list now migrate the
+  two new Daily Notes timer settings to device-local defaults. Without
+  this, upgrades could show the cloud icon as synced even though new
+  installs were local by default.
+- Daily Notes-only auto-sync no longer rewrites today's Daily Note or
+  shows an "updated" notice when the rendered marker block is unchanged.
 
 ### Compatibility
 

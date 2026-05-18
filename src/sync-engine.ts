@@ -683,13 +683,13 @@ export class SyncEngine {
    * Daily Notes catch-up (spec 0006) without coupling the engine to
    * Daily Notes itself.
    */
-  private onAfterSync?: (items: NormalizedItem[]) => Promise<void>;
+  private onAfterSync?: (items: NormalizedItem[]) => Promise<string | void>;
 
   constructor(
     app: App,
     settings: TraktrSettings,
     saveSettings: () => Promise<void>,
-    onAfterSync?: (items: NormalizedItem[]) => Promise<void>,
+    onAfterSync?: (items: NormalizedItem[]) => Promise<string | void>,
   ) {
     this.app = app;
     this.settings = settings;
@@ -757,11 +757,13 @@ export class SyncEngine {
       //    updates) so they survive across sessions and across devices.
       await this.saveSettings();
 
+      let resultNoticeSuffix = "";
+
       // 7.5 — [0.7.0] Daily Notes catch-up. Side effect: must not roll
       // back the main sync result if it fails. See spec 0006.
       if (this.onAfterSync) {
         try {
-          await this.onAfterSync([...merged.values()]);
+          resultNoticeSuffix = (await this.onAfterSync([...merged.values()])) ?? "";
         } catch (e) {
           console.warn("[Traktr] Daily Notes catch-up failed (non-fatal):", e);
         }
@@ -779,6 +781,9 @@ export class SyncEngine {
       // steady-state case is zero, so we'd rather suppress than add noise.
       if (result.renamed > 0) {
         msg += t("notice.syncCompleteWithRenames", { renamed: result.renamed });
+      }
+      if (resultNoticeSuffix) {
+        msg += resultNoticeSuffix;
       }
       if (result.failed > 0) {
         msg += t("notice.syncCompleteWithFailures", { failed: result.failed });
@@ -819,10 +824,13 @@ export class SyncEngine {
    */
   async syncDailyNotesData(
     onProgress?: SyncProgress,
+    options: { suppressAlreadyRunningNotice?: boolean } = {},
   ): Promise<DailyNotesDataSyncResult> {
     const t = getTranslator(this.settings.uiLanguage);
     if (this.syncing) {
-      new Notice(t("notice.alreadySyncing"));
+      if (!options.suppressAlreadyRunningNotice) {
+        new Notice(t("notice.alreadySyncing"));
+      }
       return { status: "already_running", items: [] };
     }
 

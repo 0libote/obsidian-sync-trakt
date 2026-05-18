@@ -166,6 +166,19 @@ Tag notes 是你筆記之間相互連結的主題檔案，建構關係圖譜。*
 | Overwrite existing note body | off | **關閉**時只更新 frontmatter，正文保留。**開啟**時每次同步從範本重新產生整個筆記 —— 你對正文的修改會永久遺失。 |
 | Remove notes for deleted items | off | **開啟**時，已不在任何啟用同步來源裡的項目對應的筆記會被移到資源回收筒。 |
 
+### Daily Notes
+
+| 設定項 | 預設值 | 說明 |
+|---|---|---|
+| Enable Daily Notes | off | 允許外掛把觀看、想看、收藏、評分事件寫入已存在的 Daily Note 檔案。不會建立缺失的 Daily Note 檔案。 |
+| Daily Notes folder | _(blank)_ | Daily Note 檔案所在資料夾。留空表示 vault 根目錄。 |
+| Daily Notes filename format | `YYYY-MM-DD` | 用來定位某一天 Daily Note 的 Moment.js 檔名格式。 |
+| Start marker / End marker | `%% trakt:daily:start %%` / `%% trakt:daily:end %%` | 外掛只管理兩個 marker 之間的內容。 |
+| Auto-update Daily Notes without media-note sync | off | 定時刷新 Daily Notes 所需的 Trakt/TMDB 資料並更新已存在的 Daily Note 檔案；不會建立、重新命名、刪除或重寫媒體筆記。可以和完整 Auto-sync 同時開啟，兩個定時器共用同一個鎖。預設按裝置本地保存。 |
+| Daily Notes auto-sync interval | `60 min` | Daily Notes-only 定時器的運行頻率。預設按裝置本地保存。 |
+| Manual backfill | _(按鈕)_ | 開啟日期範圍選擇器，用 add-only 模式補寫已存在的歷史 Daily Notes。 |
+| Today write mode | Default | Default 會用最新快照替換今天 marker 區域；incremental 會追加新事件行並保留 marker 內手寫內容。 |
+
 ### Reset
 
 **Reset to defaults** 把所有設定恢復為預設值。認證憑證和 TMDB API key 會保留。
@@ -340,6 +353,7 @@ Tag notes 是你筆記之間相互連結的主題檔案，建構關係圖譜。*
 - **手動**：命令 **Traktr: Sync**（命令面板可存取）
 - **啟動時**：在設定裡啟用 **Sync on startup**（Obsidian 載入後 5 秒觸發）
 - **定時**：啟用 **Auto-sync** 並設定間隔
+- **Daily Notes-only 定時**：啟用 **Daily Notes → Auto-update Daily Notes without media-note sync**，可以只更新 Daily Notes，不寫媒體筆記
 - **強制全量歷史刷新**：命令 **Traktr: Force full watch-history refresh** —— 跳過週期間隔，立刻重新拉取整個 Trakt 歷史。當你剛在 Trakt 上刪了一個錯誤的 scrobble、想立刻讓外掛檢測到，可以用這個
 - **清空 TMDB 快取**：命令 **Traktr: Clear TMDB metadata cache** —— 清空所有已快取的 TMDB 條目。下次同步會從 TMDB 重新拉取所有元數據。和 Settings → TMDB → **Clear cache** 按鈕等效
 

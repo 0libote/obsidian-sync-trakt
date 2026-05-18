@@ -15,6 +15,7 @@ npm run dev          # esbuild watch mode (no type check)
 npm run build        # type-check + production bundle → main.js
 npm run lint         # eslint
 npm run test:i18n    # smoke tests (no test framework dep)
+npm run check:release-i18n  # release gate for UI/menu strings + localized docs
 ```
 
 Plug into a real Obsidian vault for manual testing:
@@ -59,6 +60,8 @@ docs/specs/          Design specs for major changes
 docs/i18n/           Translations of README / SETUP / MANUAL
 .github/workflows/   CI: lint on PR/push, release on tag push (idempotent)
 scripts/release.sh   Local end-to-end release: bump versions, build, tag, push, GitHub release
+scripts/check-release-i18n.mjs
+                      Release gate for runtime UI strings + localized docs
 manifest.json        Obsidian plugin manifest
 versions.json        Plugin version → minimum Obsidian version map
 ```
@@ -157,9 +160,14 @@ npm run release 0.x.y
 
 That script (in `scripts/release.sh`) bumps versions, builds, commits,
 tags, pushes, and creates a draft GitHub Release with the three asset
-files attached. Edit the draft to add release notes, then publish from
-the GitHub UI. See [`scripts/release.sh`](../scripts/release.sh) for
-exit codes and `RELEASE_SKIP_*` env var escape hatches.
+files attached. Before the build it runs lint, smoke tests, and
+`npm run check:release-i18n`, which verifies the current version's
+changelog / in-app release log, every runtime UI string for each
+declared UI language, README spec-link parity across all existing
+localized READMEs, and MANUAL setting-row parity across all existing
+localized manuals. Edit the draft to add release notes, then publish
+from the GitHub UI. See [`scripts/release.sh`](../scripts/release.sh)
+for exit codes and `RELEASE_SKIP_*` env var escape hatches.
 
 ## Testing
 

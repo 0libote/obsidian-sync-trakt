@@ -174,7 +174,7 @@ Tag notes 是你笔记之间相互链接的主题文件，构建关系图谱。*
 | Daily Notes folder | _(blank)_ | Daily Note 文件所在文件夹。留空表示 vault 根目录。 |
 | Daily Notes filename format | `YYYY-MM-DD` | 用来定位某一天 Daily Note 的 Moment.js 文件名格式。 |
 | Start marker / End marker | `%% trakt:daily:start %%` / `%% trakt:daily:end %%` | 插件只管理两个 marker 之间的内容。 |
-| Auto-sync Daily Notes only | off | 定时刷新 Daily Notes 所需的 Trakt/TMDB 数据并更新已存在的 Daily Note 文件；不会创建、重命名、删除或重写媒体笔记。默认按设备本地保存。 |
+| Auto-update Daily Notes without media-note sync | off | 定时刷新 Daily Notes 所需的 Trakt/TMDB 数据并更新已存在的 Daily Note 文件；不会创建、重命名、删除或重写媒体笔记。可以和完整 Auto-sync 同时开启，两个定时器共用同一个锁。默认按设备本地保存。 |
 | Daily Notes auto-sync interval | `60 min` | Daily Notes-only 定时器的运行频率。默认按设备本地保存。 |
 | Manual backfill | _(按钮)_ | 打开日期范围选择器，用 add-only 模式补写已存在的历史 Daily Notes。 |
 | Today write mode | Default | Default 会用最新快照替换今天 marker 区域；incremental 会追加新事件行并保留 marker 内手写内容。 |
@@ -353,7 +353,7 @@ Tag notes 是你笔记之间相互链接的主题文件，构建关系图谱。*
 - **手动**：命令 **Traktr: Sync**（命令面板可访问）
 - **启动时**：在设置里启用 **Sync on startup**（Obsidian 加载后 5 秒触发）
 - **定时**：启用 **Auto-sync** 并设置间隔
-- **Daily Notes-only 定时**：启用 **Daily Notes → Auto-sync Daily Notes only**，可以只更新 Daily Notes，不写媒体笔记
+- **Daily Notes-only 定时**：启用 **Daily Notes → Auto-update Daily Notes without media-note sync**，可以只更新 Daily Notes，不写媒体笔记
 - **强制全量历史刷新**：命令 **Traktr: Force full watch-history refresh** —— 跳过周期间隔，立刻重新拉取整个 Trakt 历史。当你刚在 Trakt 上删了一个错误的 scrobble、想立刻让插件检测到，可以用这个
 - **清空 TMDB 缓存**：命令 **Traktr: Clear TMDB metadata cache** —— 清空所有已缓存的 TMDB 条目。下次同步会从 TMDB 重新拉取所有元数据。和 Settings → TMDB → **Clear cache** 按钮等效
 

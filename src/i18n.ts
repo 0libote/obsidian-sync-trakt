@@ -8,9 +8,11 @@
  * this module is purely about the strings the plugin renders to the user.
  */
 
-export type UiLanguage = "en" | "zh-CN";
+export const UI_LANGUAGES = ["en", "zh-CN"] as const;
 
-const STRINGS = {
+export type UiLanguage = (typeof UI_LANGUAGES)[number];
+
+export const STRINGS = {
   // ── [0.6.0] Settings page tab labels ──
   "tabs.general": { en: "General", "zh-CN": "通用" },
   "tabs.notes":   { en: "Notes",   "zh-CN": "笔记" },
@@ -78,24 +80,24 @@ const STRINGS = {
     "zh-CN": "打分 → 需要开启「同步评分」",
   },
   "daily.autoSync.heading": {
-    en: "Daily Notes auto-sync",
-    "zh-CN": "Daily Notes 自动同步",
+    en: "Daily Notes-only auto-sync",
+    "zh-CN": "Daily Notes 独立自动同步",
   },
   "daily.autoSync.name": {
-    en: "Auto-sync Daily Notes only",
-    "zh-CN": "仅自动同步 Daily Notes",
+    en: "Auto-update Daily Notes without media-note sync",
+    "zh-CN": "自动更新 Daily Notes（不写媒体笔记）",
   },
   "daily.autoSync.desc": {
-    en: "Periodically refresh Trakt data needed for Daily Notes and update existing Daily Note files. Media notes are not created, renamed, deleted, or rewritten.",
-    "zh-CN": "定时刷新 Daily Notes 所需的 Trakt 数据并更新已存在的 Daily Note 文件。不会创建、重命名、删除或重写媒体笔记。",
+    en: "Runs on its own timer. It refreshes the Trakt/TMDB data needed for Daily Notes and updates existing Daily Note files only. You can keep the Sync tab auto-sync enabled too; both timers share one lock.",
+    "zh-CN": "使用独立定时器运行。它会刷新 Daily Notes 所需的 Trakt/TMDB 数据，只更新已存在的 Daily Note 文件。可以和「同步」里的自动同步同时开启；两个定时器共用同一个锁。",
   },
   "daily.autoSync.interval.name": {
     en: "Daily Notes auto-sync interval (minutes)",
     "zh-CN": "Daily Notes 自动同步间隔（分钟）",
   },
   "daily.autoSync.interval.desc": {
-    en: "How often to refresh Daily Notes. Minimum 5, maximum 360. This setting is device-local by default.",
-    "zh-CN": "刷新 Daily Notes 的频率。最小 5，最大 360。该设置默认按设备单独保存。",
+    en: "How often to refresh Daily Notes. Minimum 5, maximum 360. This setting is device-local by default, so each device can choose its own cadence.",
+    "zh-CN": "刷新 Daily Notes 的频率。最小 5，最大 360。该设置默认仅本设备生效，所以每台设备可以使用自己的频率。",
   },
   // [0.8.0] Today-mode write strategy. Section sits at the bottom of
   // the Daily Notes tab, after Manual backfill. Renders a comparison
@@ -280,6 +282,22 @@ const STRINGS = {
   "daily.today.noFile": {
     en: "Sync Trakt: no Daily Note for today.",
     "zh-CN": "Sync Trakt：今天没有 Daily Note。",
+  },
+  "daily.today.unchanged": {
+    en: "Sync Trakt: today's Daily Note is already up to date.",
+    "zh-CN": "Sync Trakt：今日 Daily Note 已是最新。",
+  },
+  "syncResult.dailyNotes.todayOnly": {
+    en: " Daily Note updated.",
+    "zh-CN": " Daily Note 已更新。",
+  },
+  "syncResult.dailyNotes.withPast": {
+    en: " Daily Note updated; {wrote} past day(s) filled.",
+    "zh-CN": " Daily Note 已更新，过去 {wrote} 天新填入。",
+  },
+  "syncResult.dailyNotes.pastOnly": {
+    en: " {wrote} past day(s) filled in Daily Notes.",
+    "zh-CN": " 过去 {wrote} 天已填入 Daily Note。",
   },
   "daily.disabled": {
     en: "Sync Trakt: Daily Notes integration is disabled.",

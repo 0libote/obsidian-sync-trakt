@@ -75,6 +75,7 @@ import {
   computeDailyNotePath,
   computeThisMonth,
   computeLastMonth,
+  processDate,
 } from "../src/daily-notes";
 import {
   EMPTY_HISTORY_STATE,
@@ -98,8 +99,11 @@ import {
   type TraktrSettings,
   LOCAL_ELIGIBLE_KEYS,
   DEFAULT_LOCAL_KEYS,
+  DEFAULT_LOCAL_KEYS_ADDED_IN_SCHEMA_2,
   LOCAL_STORAGE_PREFIX,
   LOCAL_KEYS_STORAGE_KEY,
+  LOCAL_KEYS_SCHEMA_STORAGE_KEY,
+  LOCAL_KEYS_SCHEMA_VERSION,
 } from "../src/settings";
 import { getTranslator, t } from "../src/i18n";
 import type { NormalizedItem } from "../src/types";
@@ -2201,6 +2205,70 @@ void (async () => {
       defaultLocal.has("dailyNotesAutoSyncIntervalMinutes"),
       "dailyNotesAutoSyncIntervalMinutes defaults to LOCAL",
     );
+    assertEq(
+      DEFAULT_LOCAL_KEYS_ADDED_IN_SCHEMA_2.length,
+      2,
+      "schema-2 default-local migration adds the two Daily Notes timer keys",
+    );
+  }
+
+  console.log("\n[43b] device-local key migration adds new Daily Notes timer keys once");
+  {
+    const stub = await import("./stub-obsidian");
+    const mainModule = await import("../src/main");
+    const app = new stub.App();
+    const plugin = new mainModule.default() as never;
+    const mutable = plugin as {
+      app: unknown;
+      settings: TraktrSettings;
+      migrateLocalKeysSchema: (keys: string[]) => string[];
+    };
+    mutable.app = app;
+    mutable.settings = withSettings({
+      dailyNotesAutoSyncEnabled: true,
+      dailyNotesAutoSyncIntervalMinutes: 15,
+    });
+
+    const oldLocalKeys = [
+      "syncOnStartup",
+      "autoSyncEnabled",
+      "autoSyncIntervalMinutes",
+    ];
+    const migrated = mutable.migrateLocalKeysSchema(oldLocalKeys);
+    assertTrue(
+      migrated.includes("dailyNotesAutoSyncEnabled"),
+      "existing installs get Daily Notes auto-sync toggle marked LOCAL",
+    );
+    assertTrue(
+      migrated.includes("dailyNotesAutoSyncIntervalMinutes"),
+      "existing installs get Daily Notes interval marked LOCAL",
+    );
+    assertEq(
+      app.loadLocalStorage(`${LOCAL_STORAGE_PREFIX}dailyNotesAutoSyncEnabled`),
+      true,
+      "migration stores current Daily Notes auto-sync value locally",
+    );
+    assertEq(
+      app.loadLocalStorage(`${LOCAL_STORAGE_PREFIX}dailyNotesAutoSyncIntervalMinutes`),
+      15,
+      "migration stores current Daily Notes interval locally",
+    );
+    assertEq(
+      app.loadLocalStorage(LOCAL_KEYS_SCHEMA_STORAGE_KEY),
+      LOCAL_KEYS_SCHEMA_VERSION,
+      "migration records the local-key schema version",
+    );
+
+    const userSyncedDailyKeys = oldLocalKeys;
+    const afterSchemaRecorded = mutable.migrateLocalKeysSchema(userSyncedDailyKeys);
+    assertTrue(
+      !afterSchemaRecorded.includes("dailyNotesAutoSyncEnabled"),
+      "after schema migration, user can switch Daily Notes auto-sync back to synced",
+    );
+    assertTrue(
+      !afterSchemaRecorded.includes("dailyNotesAutoSyncIntervalMinutes"),
+      "after schema migration, user can switch Daily Notes interval back to synced",
+    );
   }
 
   console.log("\n[44] localStorage key namespacing is consistent");
@@ -2752,6 +2820,7 @@ void (async () => {
       "daily.catchUpDone.pastOnly",
       "daily.today.updated",
       "daily.today.noFile",
+      "daily.today.unchanged",
       "daily.disabled",
     ] as const;
     for (const k of noticeKeys) {
@@ -3031,6 +3100,91 @@ void (async () => {
         "content after marker region preserved verbatim",
       );
     }
+  }
+
+  console.log("\n[57b] processDate — unchanged today does not rewrite file");
+  {
+    const stub = await import("./stub-obsidian");
+    const mockMoment = (input: string, _fmt: string) => {
+      const [y, m, d] = input.split("-");
+      return {
+        format(out: string): string {
+          return out
+            .replace(/YYYY/g, y)
+            .replace(/MM/g, m)
+            .replace(/DD/g, d);
+        },
+      };
+    };
+    (globalThis as unknown as { window: unknown }).window = { moment: mockMoment };
+
+    const date = "2026-05-11";
+    const item: NormalizedItem = {
+      type: "movie",
+      title: "Inception",
+      year: 2010,
+      ids: { trakt: 1, slug: "inception-2010", imdb: "tt1375666", tmdb: 27205 },
+      overview: "",
+      genres: [],
+      runtime: 148,
+      rating: 8.8,
+      votes: 1000,
+      certification: "PG-13",
+      country: "us",
+      language: "en",
+      status: "released",
+      originalTitle: "Inception",
+      originalOverview: "",
+      originalGenres: [],
+      watch_history_movie: ["2026-05-11T21:00:00Z"],
+    };
+    const settings = withSettings({
+      dailyNotesFolder: "",
+      dailyNotesFilenameFormat: "YYYY-MM-DD",
+      dailyNotesSyncMode: "default",
+      templateLanguage: "en",
+      syncWatchedDetail: true,
+      syncWatchlist: false,
+      syncFavorites: false,
+      syncRatings: false,
+    });
+    let content = renderMarkerBlock(
+      aggregateEventsForDate(date, [item], settings),
+      settings.dailyNotesMarkerStart,
+      settings.dailyNotesMarkerEnd,
+      "en",
+    );
+    let processCalls = 0;
+    const file = new stub.TFile();
+    file.path = "2026-05-11.md";
+    const app = new stub.App() as unknown as {
+      vault: {
+        getAbstractFileByPath: (path: string) => unknown;
+        read: () => Promise<string>;
+        process: (_file: unknown, cb: (old: string) => string) => Promise<void>;
+      };
+    };
+    app.vault = {
+      getAbstractFileByPath: (path: string) => (path === file.path ? file : null),
+      read: async () => content,
+      process: async (_file, cb) => {
+        processCalls++;
+        content = cb(content);
+      },
+    };
+
+    const result = await processDate(
+      {
+        app: app as never,
+        settings,
+        saveSettings: async () => undefined,
+        getMergedItems: () => [item],
+      },
+      date,
+      "today",
+    );
+    assertEq(result.status, "unchanged", "identical today block reports unchanged");
+    assertEq(processCalls, 0, "unchanged today block does not call vault.process");
   }
 
   // ── Test 58: [0.9.0 / spec 0008] strict primary + fallback ───────────
