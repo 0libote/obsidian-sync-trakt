@@ -11,7 +11,9 @@
 
 > 🌐 **English** · [简体中文](docs/i18n/README.zh-CN.md) · [繁體中文](docs/i18n/README.zh-TW.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Deutsch](docs/i18n/README.de.md) · [Español](docs/i18n/README.es.md) · [Italiano](docs/i18n/README.it.md)
 
-<!-- screenshot: hero -->
+<p align="center">
+  <img src="docs/screenshots/hero_bases_movies_v3_editorial_stack.png" alt="Sync Trakt movie library in Obsidian Bases" width="100%">
+</p>
 
 ## ✨ Why?
 
@@ -39,7 +41,9 @@ When **Sync watch history (detailed)** is enabled, the plugin queries Trakt's `/
 
 Re-watches are listed comma-separated; episodes sort by season then episode number. The block is wrapped in `%% trakt:watch-history %%` markers — the plugin updates only what's between the markers, so any hand-written notes elsewhere in the body are never touched.
 
-<!-- screenshot: watch-history -->
+<p align="center">
+  <img src="docs/screenshots/episode_watch_history_view.png" alt="Detailed episode watch history in an Obsidian note" width="100%">
+</p>
 
 ## 🌐 Metadata localization
 
@@ -61,7 +65,9 @@ trakt_metadata_language: zh-CN
 
 Tags and tag-note paths always stay in English — your existing Dataview queries keep working unchanged.
 
-<!-- screenshot: metadata-localization -->
+<p align="center">
+  <img src="docs/screenshots/movie_note_properties_view.png" alt="Localized Trakt metadata stored as Obsidian note properties" width="100%">
+</p>
 
 ## 🌍 Plugin UI + note templates
 
@@ -70,7 +76,9 @@ Metadata localization above is one axis; the plugin's own surfaces are separate 
 - **Settings tab, command palette, notice popups** speak **English** and **简体中文**. More UI languages on demand — [open an issue](https://github.com/o1xhack/obsidian-sync-trakt/issues) if you want to volunteer one.
 - **Bundled note templates** in 11 languages — English, Simplified Chinese (zh-CN), Traditional Chinese (zh-TW / zh-HK), Japanese, Korean, French, German, Italian, Spanish, Portuguese (BR), Russian. Hand-curated, not machine-translated; section headings, bullet labels, and punctuation follow each language's conventions (full-width colons in Japanese, spaced colons in French, etc.). The template-language dropdown lists exactly these 11; locales outside the list fall back to English (rather than silently picking a sibling locale).
 
-<!-- screenshot: bilingual-ui -->
+<p align="center">
+  <img src="docs/screenshots/settings_sync_sources.png" alt="Tabbed Sync Trakt settings with sync source controls" width="100%">
+</p>
 
 ## 📅 Daily Notes integration
 
@@ -97,6 +105,10 @@ delete, or rewrite media notes. The Daily-only timer and the full sync
 timer share one lock, so if they fire together, one run skips instead of
 writing concurrently.
 
+<p align="center">
+  <img src="docs/screenshots/daily_notes_output_view.png" alt="Daily Notes populated with Trakt watch activity" width="100%">
+</p>
+
 ## 🔄 Cross-device sync
 
 Auth state — Trakt tokens, TMDB key, all settings — lives in `<vault>/.obsidian/plugins/sync-trakt/data.json` and follows your vault-sync layer. Configure auth once on Mac, share with iPhone via Obsidian Sync (with `Plugin data` enabled), Syncthing, iCloud + Advanced Data Protection, or Cryptomator. The plugin doesn't store anything on a server.
@@ -119,6 +131,10 @@ The `trakt_poster_url` frontmatter field works out-of-the-box with [Obsidian Bas
 - **Table view** (1.9.4+): add a formula column with `image(note.trakt_poster_url)`
 
 Filter by `trakt_type = "movie"` / `"show"`, sort by `trakt_year` / `trakt_rating` / `trakt_my_rating`, group by `trakt_genres`. The same frontmatter properties that power Dataview queries also power Bases views — no extra setup.
+
+<p align="center">
+  <img src="docs/screenshots/bases_all_view.png" alt="Obsidian Bases card view for synced Trakt movies and shows" width="100%">
+</p>
 
 ## 🚀 Quick start
 

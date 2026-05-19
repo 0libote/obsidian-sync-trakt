@@ -11,7 +11,9 @@
 
 > 🌐 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Français** · [Deutsch](README.de.md) · [Español](README.es.md) · [Italiano](README.it.md)
 
-<!-- screenshot: hero -->
+<p align="center">
+  <img src="../screenshots/hero_bases_movies_v3_editorial_stack.png" alt="Sync Trakt movie library in Obsidian Bases" width="100%">
+</p>
 
 ## ✨ Pourquoi ?
 
@@ -39,7 +41,9 @@ Lorsque **Sync watch history (detailed)** est activé, le plugin interroge l'end
 
 Les revisionnages sont listés séparés par des virgules ; les épisodes sont triés par saison puis par numéro d'épisode. Le bloc est entouré de marqueurs `%% trakt:watch-history %%` — le plugin ne met à jour que ce qui se trouve entre les marqueurs, donc **vos notes manuscrites ailleurs dans le corps ne sont jamais touchées**.
 
-<!-- screenshot: watch-history -->
+<p align="center">
+  <img src="../screenshots/episode_watch_history_view.png" alt="Detailed episode watch history in an Obsidian note" width="100%">
+</p>
 
 ## 🌐 Localisation des métadonnées
 
@@ -61,7 +65,9 @@ trakt_metadata_language: zh-CN
 
 Les tags et chemins tag-note restent toujours en anglais — vos requêtes Dataview existantes continuent de fonctionner sans modification.
 
-<!-- screenshot: metadata-localization -->
+<p align="center">
+  <img src="../screenshots/movie_note_properties_view.png" alt="Localized Trakt metadata stored as Obsidian note properties" width="100%">
+</p>
 
 ## 🌍 Interface du plugin + modèles de notes
 
@@ -70,7 +76,9 @@ La localisation des métadonnées ci-dessus est un axe ; les surfaces propres au
 - **L'onglet des paramètres, la palette de commandes et les notifications** parlent **English** et **简体中文**. D'autres langues d'interface à la demande — [ouvrez une issue](https://github.com/o1xhack/obsidian-sync-trakt/issues) si vous souhaitez en proposer une.
 - **Modèles de notes intégrés** dans 11 langues — anglais, chinois simplifié (zh-CN), chinois traditionnel (zh-TW / zh-HK), japonais, coréen, français, allemand, italien, espagnol, portugais (BR), russe. Faits main, pas traduits machine ; titres de section, libellés de listes et ponctuation suivent les conventions de chaque langue (deux-points pleine chasse en japonais, deux-points espacés en français, etc.). La liste déroulante de langue de modèle ne propose que ces 11 langues ; les locales hors liste retombent sur l'anglais (plutôt que de choisir silencieusement une locale sœur).
 
-<!-- screenshot: bilingual-ui -->
+<p align="center">
+  <img src="../screenshots/settings_sync_sources.png" alt="Tabbed Sync Trakt settings with sync source controls" width="100%">
+</p>
 
 ## 📅 Intégration Daily Notes
 

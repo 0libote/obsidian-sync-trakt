@@ -11,7 +11,9 @@
 
 > 🌐 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · **Deutsch** · [Español](README.es.md) · [Italiano](README.it.md)
 
-<!-- screenshot: hero -->
+<p align="center">
+  <img src="../screenshots/hero_bases_movies_v3_editorial_stack.png" alt="Sync Trakt movie library in Obsidian Bases" width="100%">
+</p>
 
 ## ✨ Warum?
 
@@ -39,7 +41,9 @@ Wenn **Sync watch history (detailed)** aktiviert ist, fragt das Plugin den `/syn
 
 Erneute Visionierungen werden kommagetrennt aufgelistet; Episoden sortieren nach Staffel und Episodennummer. Der Block ist von `%% trakt:watch-history %%`-Markern umschlossen — das Plugin aktualisiert nur den Inhalt zwischen den Markern, sodass **handgeschriebene Notizen anderswo im Text niemals berührt werden**.
 
-<!-- screenshot: watch-history -->
+<p align="center">
+  <img src="../screenshots/episode_watch_history_view.png" alt="Detailed episode watch history in an Obsidian note" width="100%">
+</p>
 
 ## 🌐 Metadaten-Lokalisierung
 
@@ -61,7 +65,9 @@ trakt_metadata_language: zh-CN
 
 Tags und Tag-Note-Pfade bleiben immer auf Englisch — deine bestehenden Dataview-Abfragen funktionieren unverändert weiter.
 
-<!-- screenshot: metadata-localization -->
+<p align="center">
+  <img src="../screenshots/movie_note_properties_view.png" alt="Localized Trakt metadata stored as Obsidian note properties" width="100%">
+</p>
 
 ## 🌍 Plugin-Oberfläche + Notiz-Vorlagen
 
@@ -70,7 +76,9 @@ Die Metadaten-Lokalisierung oben ist eine Achse; die eigenen Oberflächen des Pl
 - **Die Einstellungsregisterkarte, die Befehlspalette und Hinweis-Popups** sprechen **English** und **简体中文**. Weitere UI-Sprachen auf Anfrage — [öffne ein Issue](https://github.com/o1xhack/obsidian-sync-trakt/issues), wenn du eine beitragen möchtest.
 - **Mitgelieferte Notiz-Vorlagen** in 11 Sprachen — Englisch, vereinfachtes Chinesisch (zh-CN), traditionelles Chinesisch (zh-TW / zh-HK), Japanisch, Koreanisch, Französisch, Deutsch, Italienisch, Spanisch, Portugiesisch (BR), Russisch. Handgepflegt, nicht maschinell übersetzt; Abschnittsüberschriften, Listenbeschriftungen und Zeichensetzung folgen den Konventionen jeder Sprache (Vollbreite-Doppelpunkte im Japanischen, Doppelpunkte mit Leerzeichen im Französischen usw.). Das Vorlagensprache-Dropdown listet nur diese 11 Sprachen; Locales außerhalb der Liste fallen auf Englisch zurück (anstatt stillschweigend eine verwandte Schwesterlokalisierung auszuwählen).
 
-<!-- screenshot: bilingual-ui -->
+<p align="center">
+  <img src="../screenshots/settings_sync_sources.png" alt="Tabbed Sync Trakt settings with sync source controls" width="100%">
+</p>
 
 ## 📅 Daily Notes-Integration
 

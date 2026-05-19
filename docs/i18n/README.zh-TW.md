@@ -11,7 +11,9 @@
 
 > 🌐 [English](../../README.md) · [简体中文](README.zh-CN.md) · **繁體中文** · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Italiano](README.it.md)
 
-<!-- screenshot: hero -->
+<p align="center">
+  <img src="../screenshots/hero_bases_movies_v3_editorial_stack.png" alt="Sync Trakt movie library in Obsidian Bases" width="100%">
+</p>
 
 ## ✨ 為什麼用這個
 
@@ -39,7 +41,9 @@
 
 重看的集會用逗號分隔；按季 / 集編號排序。整個段落用 `%% trakt:watch-history %%` 標記包住 —— 外掛只更新標記之間的內容，**你在筆記其他地方手寫的內容一字不動**。
 
-<!-- screenshot: watch-history -->
+<p align="center">
+  <img src="../screenshots/episode_watch_history_view.png" alt="Detailed episode watch history in an Obsidian note" width="100%">
+</p>
 
 ## 🌐 元數據本地化
 
@@ -61,7 +65,9 @@ trakt_metadata_language: zh-TW
 
 標籤和 tag-note 路徑**永遠是英文** —— 你已有的 Dataview 查詢不會因為切換語言而失效。
 
-<!-- screenshot: metadata-localization -->
+<p align="center">
+  <img src="../screenshots/movie_note_properties_view.png" alt="Localized Trakt metadata stored as Obsidian note properties" width="100%">
+</p>
 
 ## 🌍 外掛 UI 和筆記範本
 
@@ -70,7 +76,9 @@ trakt_metadata_language: zh-TW
 - **設定面板、命令面板、提示彈窗** 目前支援 **English** 和 **簡體中文**。其他 UI 語言按需擴展 —— 想貢獻的話歡迎 [開個 issue](https://github.com/o1xhack/obsidian-sync-trakt/issues)
 - **內建筆記範本** 共 11 種語言 —— 英文、簡體中文 (zh-CN)、繁體中文 (zh-TW / zh-HK)、日文、韓文、法文、德文、義大利文、西班牙文、葡萄牙文 (BR)、俄文。手工翻譯，不是機翻；段落標題、列表標籤、標點符號都按各語言習慣（日文用全形冒號、法文用空格冒號等）。範本語言下拉框只列這 11 種；不在列表的語言會回退到英文（而不是悄悄挑一個鄰近的方言湊數）
 
-<!-- screenshot: bilingual-ui -->
+<p align="center">
+  <img src="../screenshots/settings_sync_sources.png" alt="Tabbed Sync Trakt settings with sync source controls" width="100%">
+</p>
 
 ## 📅 Daily Notes 整合
 

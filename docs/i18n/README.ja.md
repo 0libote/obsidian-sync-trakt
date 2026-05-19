@@ -11,7 +11,9 @@
 
 > 🌐 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · **日本語** · [한국어](README.ko.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Español](README.es.md) · [Italiano](README.it.md)
 
-<!-- screenshot: hero -->
+<p align="center">
+  <img src="../screenshots/hero_bases_movies_v3_editorial_stack.png" alt="Sync Trakt movie library in Obsidian Bases" width="100%">
+</p>
 
 ## ✨ 主な特徴
 
@@ -39,7 +41,9 @@
 
 再視聴はカンマ区切りで列挙され、シーズン → エピソード番号順にソートされます。このブロックは `%% trakt:watch-history %%` マーカーで囲まれており、プラグインはマーカー内のみを更新します。**ノート本文の他の場所に書いた手書きの内容は一切触れません**。
 
-<!-- screenshot: watch-history -->
+<p align="center">
+  <img src="../screenshots/episode_watch_history_view.png" alt="Detailed episode watch history in an Obsidian note" width="100%">
+</p>
 
 ## 🌐 メタデータのローカライズ
 
@@ -61,7 +65,9 @@ trakt_metadata_language: ja-JP
 
 タグと tag-note のパスは**常に英語のまま**なので、既存の Dataview クエリは言語を切り替えても引き続き動作します。
 
-<!-- screenshot: metadata-localization -->
+<p align="center">
+  <img src="../screenshots/movie_note_properties_view.png" alt="Localized Trakt metadata stored as Obsidian note properties" width="100%">
+</p>
 
 ## 🌍 プラグイン UI とノートテンプレート
 
@@ -70,7 +76,9 @@ trakt_metadata_language: ja-JP
 - **設定タブ、コマンドパレット、通知ポップアップ** は現在 **English** と **简体中文** に対応。他の UI 言語は要望次第 — 貢献したい方は [issue を立てて](https://github.com/o1xhack/obsidian-sync-trakt/issues) ください
 - **バンドルされたノートテンプレート** 11 言語 — 英語、簡体字中国語 (zh-CN)、繁体字中国語 (zh-TW / zh-HK)、日本語、韓国語、フランス語、ドイツ語、イタリア語、スペイン語、ポルトガル語 (BR)、ロシア語。機械翻訳ではなく手作業で翻訳しており、見出し・リスト項目・記号は各言語の慣習に従っています（日本語は全角コロン、フランス語は空白付きコロンなど）。テンプレート言語ドロップダウンはこの 11 言語のみを表示し、リストにない locale は英語にフォールバックします（似た方言を静かに代用することはありません）
 
-<!-- screenshot: bilingual-ui -->
+<p align="center">
+  <img src="../screenshots/settings_sync_sources.png" alt="Tabbed Sync Trakt settings with sync source controls" width="100%">
+</p>
 
 ## 📅 Daily Notes 連携
 
