@@ -42,6 +42,14 @@ export interface ReleaseHighlight {
  */
 export const RELEASE_LOG: ReleaseLogEntry[] = [
   {
+    version: "1.2.1",
+    titleEn: "Daily Notes sync boundary fixes",
+    titleZh: "Daily Notes 同步边界修复",
+    isBugfix: true,
+    en: "Daily Notes manual backfill now refreshes the currently enabled Sync sources before writing the selected date range, so watchlist, favorites, ratings, and detailed watched events follow the same source toggles as Daily Notes-only sync instead of relying on a stale in-memory snapshot. Detailed watch-history-only items, such as season 0 specials that appear in Trakt history but not in watched shows, can now create or update media notes and appear in Daily Notes. Older local history caches with orphaned detailed-history entries are repaired automatically with one full history refresh when needed. The release also adds a sync architecture and control matrix documenting what each source toggle, sync button, timer, Daily Notes-only sync, and manual backfill writes or deliberately skips.",
+    zh: "Daily Notes 手动回溯现在会先刷新当前开启的同步来源，再写入选中的日期范围；想看、收藏、评分、详细观看事件会和 Daily Notes-only 同步一样跟随 Sync Sources，不再依赖旧的内存快照。只出现在详细观看历史里的条目，比如 S00 特别集，现在可以创建或更新媒体笔记，也能出现在 Daily Notes。旧本地历史缓存里已经存在孤立详细历史记录时，插件会在需要时自动补一次完整历史刷新。此版本还新增同步架构和控制矩阵，明确每个同步来源、同步按钮、定时器、Daily Notes-only 同步、手动回溯分别会写什么，以及不会写什么。",
+  },
+  {
     version: "1.2.0",
     titleEn: "Daily Notes-only auto-sync",
     titleZh: "Daily Notes 独立自动同步",

@@ -1494,12 +1494,16 @@ export class TraktrSettingTab extends PluginSettingTab {
             this.plugin.settings,
             t,
             async (fromDate, toDate) => {
+              const refreshed =
+                await this.plugin.refreshDailyNotesDataSnapshotWithProgress();
+              if (!refreshed) return;
+
               const host: DailyNotesHost = {
                 app: this.plugin.app,
                 settings: this.plugin.settings,
                 saveSettings: () => this.plugin.saveSettings(),
-                // Backfill uses the in-memory state from the last sync run.
-                // Items collected when sync engine ran most recently.
+                // Backfill uses the freshly refreshed Daily Notes snapshot so
+                // it follows the current Sync source toggles.
                 getMergedItems: () => this.plugin.lastMergedItems ?? [],
               };
               const { wrote, skipped } = await manualBackfill(

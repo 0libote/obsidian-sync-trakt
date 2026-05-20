@@ -71,10 +71,10 @@ export default class TraktrPlugin extends Plugin {
    */
   localKeys: Set<LocalEligibleKey> = new Set();
   /**
-   * [0.7.0] Cached map of merged items from the most recent sync.
-   * Used by the Daily Notes backfill button. Manual Daily Notes refresh
-   * and Daily-only auto-sync refresh this snapshot before rendering, so
-   * those paths don't depend on stale startup memory.
+   * [0.7.0] Cached map of merged items from the most recent source refresh.
+   * Full sync, manual Daily Notes refresh, Daily Notes auto-sync, and manual
+   * backfill all refresh this snapshot before rendering so they follow the
+   * current Sync source toggles instead of stale startup memory.
    */
   lastMergedItems: NormalizedItem[] = [];
   private syncEngine!: SyncEngine;
@@ -354,13 +354,12 @@ export default class TraktrPlugin extends Plugin {
     }
   }
 
-  private async runDailyNotesSyncWithProgress(
-    scope: "today" | "catch-up",
+  async refreshDailyNotesDataSnapshotWithProgress(
     options: {
       showProgressNotice?: boolean;
       suppressAlreadyRunningNotice?: boolean;
     } = {},
-  ): Promise<void> {
+  ): Promise<boolean> {
     const showProgressNotice = options.showProgressNotice !== false;
     const tNow = getTranslator(this.settings.uiLanguage);
     const initialMsg = tNow("status.dailySyncing");
@@ -379,28 +378,44 @@ export default class TraktrPlugin extends Plugin {
             options.suppressAlreadyRunningNotice === true,
         },
       );
-      if (dataResult.status !== "updated") return;
+      if (dataResult.status !== "updated") return false;
 
       this.lastMergedItems = dataResult.items;
-      const host: DailyNotesHost = {
-        app: this.app,
-        settings: this.settings,
-        saveSettings: () => this.saveSettings(),
-        getMergedItems: () => this.lastMergedItems,
-      };
-
-      if (scope === "today") {
-        const today = localTodayISODate();
-        const result = await processDate(host, today, "today");
-        const key = this.dailyTodayNoticeKey(result.status);
-        new Notice(tNow(key), 5000);
-      } else {
-        const result = await processCatchUp(host);
-        this.showDailyCatchUpNotice(result);
-      }
+      return true;
     } finally {
       progressNotice?.hide();
       this.updateStatusBar("");
+    }
+  }
+
+  private async runDailyNotesSyncWithProgress(
+    scope: "today" | "catch-up",
+    options: {
+      showProgressNotice?: boolean;
+      suppressAlreadyRunningNotice?: boolean;
+    } = {},
+  ): Promise<void> {
+    const refreshed = await this.refreshDailyNotesDataSnapshotWithProgress(
+      options,
+    );
+    if (!refreshed) return;
+
+    const tNow = getTranslator(this.settings.uiLanguage);
+    const host: DailyNotesHost = {
+      app: this.app,
+      settings: this.settings,
+      saveSettings: () => this.saveSettings(),
+      getMergedItems: () => this.lastMergedItems,
+    };
+
+    if (scope === "today") {
+      const today = localTodayISODate();
+      const result = await processDate(host, today, "today");
+      const key = this.dailyTodayNoticeKey(result.status);
+      new Notice(tNow(key), 5000);
+    } else {
+      const result = await processCatchUp(host);
+      this.showDailyCatchUpNotice(result);
     }
   }
 

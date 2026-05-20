@@ -7,6 +7,32 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 1.2.1 — 2026-05-20
+
+**Daily Notes sync boundary fixes.** This release keeps full sync and
+Daily Notes-only sync separate, while making their source-data behavior
+consistent.
+
+### Fixed
+
+- Manual Daily Notes backfill now refreshes the enabled Sync sources before
+  rendering the selected date range, so watchlist/favorites/ratings events
+  follow the current source toggles instead of a stale in-memory snapshot.
+- Detailed watch-history-only items, such as season 0 specials that appear
+  in Trakt history but not in watched shows, can now create or update media
+  notes and appear in Daily Notes.
+- Older local history caches with orphaned detailed-history entries are now
+  repaired automatically with one full history refresh when needed.
+
+### Documentation
+
+- Added [`SYNC-ARCHITECTURE.md`](SYNC-ARCHITECTURE.md), a sync architecture
+  and control matrix that documents what each source toggle, sync button,
+  timer, Daily Notes-only sync, and manual backfill writes or deliberately
+  skips.
+- Clarified that Daily Notes-only sync and manual backfill refresh
+  Trakt/TMDB data but do not create, rename, delete, or rewrite media notes.
+
 ## 1.2.0 — 2026-05-17
 
 **Daily Notes-only auto-sync.** Daily Notes can now refresh on their own

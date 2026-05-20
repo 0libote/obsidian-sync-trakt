@@ -17,6 +17,10 @@ Movies and shows live in the same folder and are distinguished by the `trakt_typ
 
 This plugin is forked from [sarimabbas/traktr](https://github.com/sarimabbas/traktr); see the README for attribution and what's added.
 
+For a diagrammed view of which source toggle, timer, command, and Daily
+Notes control calls which API and writes which files, see
+[`SYNC-ARCHITECTURE.md`](SYNC-ARCHITECTURE.md).
+
 ---
 
 ## 2. Installation
@@ -175,7 +179,7 @@ Tag notes are topic files you link to from your notes, creating a graph of conne
 | Start marker / End marker | `%% trakt:daily:start %%` / `%% trakt:daily:end %%` | The plugin only manages content between these markers. |
 | Auto-update Daily Notes without media-note sync | off | Periodically refreshes the Trakt/TMDB data needed for Daily Notes and updates existing Daily Note files without creating, renaming, deleting, or rewriting media notes. Can be enabled together with full Auto-sync; both timers share one lock. Device-local by default. |
 | Daily Notes auto-sync interval | `60 min` | How often the Daily Notes-only timer runs. Device-local by default. |
-| Manual backfill | _(button)_ | Opens a date-range picker and fills existing Daily Notes in add-only mode for past days. |
+| Manual backfill | _(button)_ | Opens a date-range picker, refreshes the enabled Sync sources, then fills existing Daily Notes in add-only mode for past days. |
 | Today write mode | Default | Default replaces today's marker region from the latest snapshot; incremental mode appends new event lines and preserves manual annotations inside the markers. |
 
 ### Reset
@@ -359,6 +363,7 @@ When you switch **Metadata language** and run sync again:
 - **On startup**: enable **Sync on startup** in settings (runs 5 seconds after Obsidian loads)
 - **Scheduled**: enable **Auto-sync** and set an interval
 - **Daily Notes-only scheduled**: enable **Daily Notes → Auto-update Daily Notes without media-note sync** to update Daily Notes without media-note writes
+- **Daily Notes backfill**: use **Daily Notes → Manual backfill** to refresh enabled Sync sources and write existing Daily Note files in a selected date range
 - **Force full history refresh**: command **Traktr: Force full watch-history refresh** — bypasses the periodic interval and immediately re-pulls the entire Trakt history. Useful when you've just deleted a wrong scrobble on Trakt and want the plugin to detect it now
 - **Clear TMDB cache**: command **Traktr: Clear TMDB metadata cache** — empties every cached TMDB entry. The next sync re-fetches all metadata from TMDB. Same effect as the Settings → TMDB → **Clear cache** button
 

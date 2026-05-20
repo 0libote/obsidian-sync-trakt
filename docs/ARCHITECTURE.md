@@ -5,6 +5,10 @@ Reads top-to-bottom or jump via the table of contents. Companion to
 the [design specs](specs/) — specs explain *why*, this doc explains
 *what is*.
 
+For the exact control matrix that maps every sync source, command,
+timer, and Daily Notes path to its API calls and write behavior, see
+[`SYNC-ARCHITECTURE.md`](SYNC-ARCHITECTURE.md).
+
 **Currency**: this doc reflects the codebase as of 1.2.0. When you ship
 behavior changes that affect the architecture, update this doc in the
 same commit.
@@ -47,6 +51,7 @@ obsidian-sync-trakt/
 ├── docs/
 │   ├── SETUP.md            # User-facing setup walkthrough
 │   ├── MANUAL.md           # Settings reference + frontmatter / template field tables
+│   ├── SYNC-ARCHITECTURE.md # Sync source, timer, button, and Daily Notes control matrix
 │   ├── ARCHITECTURE.md     # This file
 │   ├── DEVELOPER.md        # Onboarding, build commands, contribution flow
 │   ├── CHANGELOG.md        # Short release-by-release log
@@ -120,22 +125,27 @@ shape doesn't change between desktop and mobile.
 │      - /sync/watched/movies       (if syncWatched)              │
 │      - /sync/favorites/movies     (if syncFavorites)            │
 │      - /sync/ratings/movies       (if syncRatings)              │
-│      - /sync/history/movies       (if syncWatchedDetail)        │
-│        with start_at=lastIncrementalSyncAt OR no filter for     │
-│        scheduled full refresh                                   │
 │    fetchAndMergeShows(merged): same shape with /shows variants  │
 │    Each list is iterated to populate or merge into `merged`     │
 │    (Map<"type:traktId", NormalizedItem>).                       │
-│                                                                 │
-│    History events go through aggregateMovieHistory /            │
-│    aggregateShowHistory which UPDATES historyState (additive    │
-│    merge or full-refresh rebuild) and applies the resulting     │
-│    state to items in the merged map.                            │
 └─────────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 3. ensureTagNotes                                               │
+│ 3. Detailed watch history                                       │
+│    If syncWatched + syncWatchedDetail are enabled, pull          │
+│    /sync/history/movies and /sync/history/episodes with          │
+│    start_at=lastIncrementalSyncAt, or with no filter for full    │
+│    refresh. This updates historyState, then applies that state   │
+│    to merged items. History-only items are seeded into merged    │
+│    so media notes and Daily Notes can see them. If old local     │
+│    historyState already has orphan entries, one repair full      │
+│    refresh recovers the media metadata needed to seed them.      │
+└─────────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. ensureTagNotes                                               │
 │    For each unique (type, genre, source-flag) referenced by     │
 │    merged items, create the corresponding tag-note file in      │
 │    tagNotesFolder if it doesn't exist. Never overwrites.        │
@@ -143,7 +153,7 @@ shape doesn't change between desktop and mobile.
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 4. reconcileType                                                │
+│ 5. reconcileType                                                │
 │    a) ensureFolder(folder)                                      │
 │    b) scanExistingNotes → Map<"type:id", TFile> by reading      │
 │       frontmatter from every .md in folder                      │
@@ -162,7 +172,7 @@ shape doesn't change between desktop and mobile.
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 5. Final notice                                                 │
+│ 6. Final notice                                                 │
 │    "Sync complete: N added, M updated, K removed"               │
 │    Errors collected during reconcile shown in a second notice.  │
 └─────────────────────────────────────────────────────────────────┘
@@ -200,10 +210,12 @@ Daily Notes writers:
 
 - Daily-only timer: `processCatchUp()`
 - Manual today command: `processDate(today, "today")`
+- Manual backfill button: `manualBackfill(from, to)`
 
-The manual today command used to render from `lastMergedItems`; 1.2.0
-refreshes source data first so app restarts and devices with full
-auto-sync disabled do not render from stale or empty memory.
+The manual today command and manual backfill button used to render from
+`lastMergedItems`; 1.2.0 refreshes source data first so app restarts,
+newly enabled Sync sources, and devices with full auto-sync disabled do
+not render from stale or empty memory.
 
 ## 4. Data structures
 
@@ -478,6 +490,9 @@ Two independent caches with different concerns and lifetimes.
 All authenticated calls send `trakt-api-key: clientId` and
 `Authorization: Bearer accessToken` headers.
 
+For which setting or command calls each endpoint, see
+[`SYNC-ARCHITECTURE.md`](SYNC-ARCHITECTURE.md#source-toggle-matrix).
+
 ### TMDB endpoints used
 
 | Endpoint | When called | Purpose |
@@ -496,13 +511,18 @@ for context.
 Three concurrency choices in the sync flow:
 
 1. **Within a type (movie/show), Trakt list fetches run in parallel.**
-   `Promise.all` over watchlist/watched/favorites/ratings/history. Each
-   is independent.
+   `Promise.all` over watchlist/watched/favorites/ratings. Each is
+   independent.
 
 2. **Movie type and show type run in parallel.** `fetchAndMergeMovies`
    and `fetchAndMergeShows` are dispatched together from `sync()`.
 
-3. **TMDB metadata fetch is bounded-concurrency, 5 in flight.** Uses
+3. **Detailed history runs as a separate stage.** Movie and episode
+   history fetches run in parallel when `syncWatchedDetail` is enabled.
+   They update `historyState`, seed history-only items into `merged`, and
+   then hydrate detailed watch-history fields onto merged items.
+
+4. **TMDB metadata fetch is bounded-concurrency, 5 in flight.** Uses
    `processWithConcurrency` from utils. This:
    - Keeps below TMDB's documented 50 req/s rate limit
    - Allows progress reporting during the loop (status bar / Notice)

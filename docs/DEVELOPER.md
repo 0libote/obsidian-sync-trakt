@@ -1,8 +1,10 @@
 # Developer guide
 
 Onboarding for contributors. For deep technical reference see
-[`ARCHITECTURE.md`](ARCHITECTURE.md). For why specific decisions were
-made, see [`specs/`](specs/).
+[`ARCHITECTURE.md`](ARCHITECTURE.md). For the exact sync source, timer,
+button, and Daily Notes control matrix, see
+[`SYNC-ARCHITECTURE.md`](SYNC-ARCHITECTURE.md). For why specific
+decisions were made, see [`specs/`](specs/).
 
 ## Quick start
 
@@ -56,6 +58,8 @@ src/                Plugin source code
 
 tests/               Smoke tests (single executable file, stubbed obsidian)
 docs/                User + developer documentation
+docs/SYNC-ARCHITECTURE.md
+                     Sync source, timer, button, and Daily Notes control matrix
 docs/specs/          Design specs for major changes
 docs/i18n/           Translations of README / SETUP / MANUAL
 .github/workflows/   CI: lint on PR/push, release on tag push (idempotent)
@@ -140,6 +144,9 @@ A few things are subtler than they look:
    to fetch and merge into the `merged` map
 4. If the source produces a new flag on `NormalizedItem`, update the
    types and `buildFrontmatterData` / `buildTemplateContext`
+5. Update [`SYNC-ARCHITECTURE.md`](SYNC-ARCHITECTURE.md) so full sync,
+   Daily Notes-only sync, auto-sync, and manual backfill semantics stay
+   explicit
 
 ### Add a new translation
 
@@ -206,6 +213,8 @@ to follow but apply to humans too:
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — module layout, sync flow,
   data structures, caching layers
+- [`SYNC-ARCHITECTURE.md`](SYNC-ARCHITECTURE.md) — source toggles,
+  timers, buttons, and Daily Notes write behavior
 - [`specs/`](specs/) — design rationale per major change; start with
   the index in [`specs/README.md`](specs/README.md)
 - [`CHANGELOG.md`](CHANGELOG.md) — what shipped when, condensed

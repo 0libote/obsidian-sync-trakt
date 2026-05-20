@@ -91,6 +91,11 @@ export interface DailyNotesDataSyncResult {
   items: NormalizedItem[];
 }
 
+interface DetailedHistorySyncResult {
+  events: TraktHistoryItem[];
+  wasFullRefresh: boolean;
+}
+
 // ── Normalization helpers ──
 
 function baseFromMovie(m: TraktMovie): NormalizedItem {
@@ -171,6 +176,11 @@ function applyTranslation(
 
 function itemKey(type: ItemType, traktId: number): string {
   return `${type}:${traktId}`;
+}
+
+function lastTimestamp(timestamps: ReadonlyArray<string>): string | undefined {
+  if (timestamps.length === 0) return undefined;
+  return timestamps.reduce((latest, ts) => (ts > latest ? ts : latest));
 }
 
 // ── Watch history aggregation ──
@@ -737,10 +747,14 @@ export class SyncEngine {
       //    Updates the persistent historyState in `this.settings`. Skipped
       //    entirely when syncWatched / syncWatchedDetail is off.
       if (this.settings.syncWatched && this.settings.syncWatchedDetail) {
-        await this.syncDetailHistory(
+        const history = await this.syncDetailHistory(
           options.forceFullHistoryRefresh === true,
           onProgress,
         );
+        this.mergeHistoryOnlyItems(merged, history.events);
+        if (!history.wasFullRefresh) {
+          await this.ensureHistoryStateItemsAreMerged(merged, onProgress);
+        }
       }
 
       // 4. Apply persistent history state to in-memory items so the note
@@ -850,7 +864,11 @@ export class SyncEngine {
       ]);
 
       if (this.settings.syncWatched && this.settings.syncWatchedDetail) {
-        await this.syncDetailHistory(false, onProgress);
+        const history = await this.syncDetailHistory(false, onProgress);
+        this.mergeHistoryOnlyItems(merged, history.events);
+        if (!history.wasFullRefresh) {
+          await this.ensureHistoryStateItemsAreMerged(merged, onProgress);
+        }
       }
 
       applyHistoryStateToItems(this.settings.historyState, merged.values());
@@ -1037,7 +1055,7 @@ export class SyncEngine {
   private async syncDetailHistory(
     forceFullRefresh: boolean,
     onProgress?: SyncProgress,
-  ): Promise<void> {
+  ): Promise<DetailedHistorySyncResult> {
     const t = getTranslator(this.settings.uiLanguage);
     const state = this.settings.historyState;
     const interval = this.settings.historyFullRefreshIntervalDays;
@@ -1082,6 +1100,88 @@ export class SyncEngine {
       state.lastAuthoritativeFullRefreshAt = state.lastFullRefreshAt;
     } else {
       mergeHistoryEvents(state, all);
+    }
+    return { events: all, wasFullRefresh: fullRefresh };
+  }
+
+  private hasUnmergedHistoryStateItems(
+    map: Map<string, NormalizedItem>,
+  ): boolean {
+    const state = this.settings.historyState;
+    if (
+      this.settings.syncMovies &&
+      Object.keys(state.byMovie).some((id) =>
+        !map.has(itemKey("movie", Number(id))),
+      )
+    ) {
+      return true;
+    }
+    if (
+      this.settings.syncShows &&
+      Object.keys(state.byShow).some((id) =>
+        !map.has(itemKey("show", Number(id))),
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private async ensureHistoryStateItemsAreMerged(
+    map: Map<string, NormalizedItem>,
+    onProgress?: SyncProgress,
+  ): Promise<void> {
+    if (!this.hasUnmergedHistoryStateItems(map)) return;
+
+    // Old local runtime state can already contain detailed-history entries
+    // from builds that did not seed history-only items into `merged`. That
+    // state has ids and timestamps, but not enough media metadata to create a
+    // NormalizedItem, so repair it with one full history pull.
+    const history = await this.syncDetailHistory(true, onProgress);
+    this.mergeHistoryOnlyItems(map, history.events);
+  }
+
+  /**
+   * `/sync/watched/shows` can miss items that only have detailed history rows
+   * in `/sync/history/episodes` (notably season 0 specials on some Trakt data).
+   * The history state would then contain the event, but no `NormalizedItem`
+   * would exist for note creation or Daily Notes aggregation. Seed those items
+   * from the history payload so detailed watch history is not silently orphaned.
+   */
+  private mergeHistoryOnlyItems(
+    map: Map<string, NormalizedItem>,
+    historyEvents: ReadonlyArray<TraktHistoryItem>,
+  ): void {
+    const state = this.settings.historyState;
+
+    for (const ev of historyEvents) {
+      if (ev.type === "movie" && ev.movie) {
+        const item = getOrCreateItem(map, ev.movie.ids, "movie", ev.movie);
+        if (!item.watched) {
+          const watchedAt = state.byMovie[ev.movie.ids.trakt] ?? [ev.watched_at];
+          item.watched = true;
+          item.plays = watchedAt.length;
+          item.last_watched_at = lastTimestamp(watchedAt) ?? ev.watched_at;
+        }
+      } else if (ev.type === "episode" && ev.show) {
+        const item = getOrCreateItem(
+          map,
+          ev.show.ids,
+          "show",
+          undefined,
+          ev.show,
+        );
+        if (!item.watched) {
+          const episodes = state.byShow[ev.show.ids.trakt] ?? [];
+          item.watched = true;
+          item.episodes_watched = episodes.length || 1;
+          item.plays =
+            episodes.reduce((sum, ep) => sum + ep.watched_at.length, 0) || 1;
+          item.last_watched_at =
+            lastTimestamp(episodes.flatMap((ep) => ep.watched_at)) ??
+            ev.watched_at;
+        }
+      }
     }
   }
 

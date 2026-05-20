@@ -207,8 +207,8 @@ export const STRINGS = {
   // [1.0.0] Slider + N-days input replaced with a date-range modal.
   // Settings now collapses to a single button that opens the modal.
   "daily.backfill.button.desc": {
-    en: "Pick a start and end date, then run a one-shot backfill. Skips dates without an existing Daily Note. No Trakt / TMDB API calls are made — all watch history is already local.",
-    "zh-CN": "选起始和结束日期，跑一次回溯。该天没有 Daily Note 文件就直接跳过。不会调用 Trakt / TMDB API —— 所有观看历史都已经在本地了。",
+    en: "Pick a start and end date, then run a one-shot backfill. Skips dates without an existing Daily Note. Refreshes the enabled Sync sources first, then writes matching Daily Note events.",
+    "zh-CN": "选起始和结束日期，跑一次回溯。该天没有 Daily Note 文件就直接跳过。会先刷新已开启的同步来源，再写入匹配的 Daily Note 事件。",
   },
   "daily.backfill.button": { en: "Backfill…", "zh-CN": "手动回溯…" },
   "daily.backfill.modal.title": {

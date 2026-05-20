@@ -4341,7 +4341,83 @@ void (async () => {
     assertEq(locked.items.length, 0, "locked Daily-only sync returns no items");
   }
 
-  console.log("\n[71] syncDailyNotesData — respects multi-device history coordinator");
+  console.log("\n[71] syncDailyNotesData — refreshes enabled watchlist source");
+  {
+    const stub = await import("./stub-obsidian");
+    const movie = {
+      title: "Watchlist Movie",
+      year: 2026,
+      ids: { trakt: 4321, slug: "watchlist-movie-2026", imdb: "tt0432100", tmdb: 765 },
+      overview: "Watchlist overview",
+      runtime: 90,
+      country: "us",
+      genres: ["thriller"],
+      rating: 7.2,
+      votes: 50,
+      certification: "PG-13",
+      language: "en",
+      status: "released",
+    };
+    stub.resetRequestUrlMock((req) => {
+      if (req.url.includes("/sync/watchlist/movies")) {
+        return {
+          status: 200,
+          json: [
+            {
+              rank: 1,
+              id: 10001,
+              listed_at: "2026-05-11T10:00:00.000Z",
+              notes: null,
+              type: "movie",
+              movie,
+            },
+          ],
+          headers: {},
+        };
+      }
+      return { status: 200, json: [], headers: {} };
+    });
+
+    const settings = withSettings({
+      clientId: "client",
+      accessToken: "access",
+      refreshToken: "refresh",
+      tokenExpiresAt: Date.now() + 86_400_000,
+      syncMovies: true,
+      syncShows: false,
+      syncWatchlist: true,
+      syncWatched: false,
+      syncWatchedDetail: false,
+      syncFavorites: false,
+      syncRatings: false,
+    });
+    const engine = new SyncEngine(
+      new stub.App() as never,
+      settings,
+      async () => undefined,
+    );
+
+    const result = await engine.syncDailyNotesData();
+    const events = aggregateEventsForDate(
+      "2026-05-11",
+      result.items,
+      settings,
+    );
+    assertEq(result.status, "updated", "Daily-only data sync completes");
+    assertEq(result.items.length, 1, "watchlist item is included in Daily snapshot");
+    assertEq(
+      result.items[0].watchlist_added_at,
+      "2026-05-11T10:00:00.000Z",
+      "watchlist listed_at is preserved for Daily backfill",
+    );
+    assertEq(
+      events[0]?.action,
+      "added_to_watchlist",
+      "refreshed watchlist snapshot renders a Daily Note watchlist event",
+    );
+  }
+
+  console.log("\n[72] syncDailyNotesData — respects multi-device history coordinator");
   {
     const stub = await import("./stub-obsidian");
     const movie = {
@@ -4442,6 +4518,212 @@ void (async () => {
       settings.historyState.lastAuthoritativeFullRefreshAt,
       settings.historyState.lastFullRefreshAt,
       "full Daily-only refresh updates the synced authoritative coordinator",
+    );
+  }
+
+  console.log("\n[73] history-only episode events seed watched show items");
+  {
+    const stub = await import("./stub-obsidian");
+    const show = {
+      title: "Busy Treasure Hunting",
+      year: 2026,
+      ids: { trakt: 555001, slug: "busy-treasure-hunting-2026", tmdb: 999001 },
+      overview: "Special-only watched show.",
+      runtime: 45,
+      country: "cn",
+      genres: ["reality"],
+      rating: 7.1,
+      votes: 10,
+      certification: "",
+      language: "zh",
+      status: "returning series",
+    };
+    stub.resetRequestUrlMock((req) => {
+      if (req.url.includes("/sync/watched/shows")) {
+        return { status: 200, json: [], headers: {} };
+      }
+      if (req.url.includes("/sync/history/episodes")) {
+        return {
+          status: 200,
+          json: [
+            {
+              id: 990001,
+              watched_at: "2026-05-20T06:47:00.000Z",
+              action: "watch",
+              type: "episode",
+              show,
+              episode: {
+                season: 0,
+                number: 1,
+                title: "Special 1",
+                ids: { trakt: 880001, tmdb: 770001 },
+              },
+            },
+          ],
+          headers: {},
+        };
+      }
+      return { status: 200, json: [], headers: {} };
+    });
+
+    const settings = withSettings({
+      clientId: "client",
+      accessToken: "access",
+      refreshToken: "refresh",
+      tokenExpiresAt: Date.now() + 86_400_000,
+      syncMovies: false,
+      syncShows: true,
+      syncWatchlist: false,
+      syncWatched: true,
+      syncWatchedDetail: true,
+      syncFavorites: false,
+      syncRatings: false,
+    });
+    const engine = new SyncEngine(
+      new stub.App() as never,
+      settings,
+      async () => undefined,
+    );
+
+    const result = await engine.syncDailyNotesData();
+    assertEq(result.status, "updated", "Daily-only data sync completes");
+    assertEq(
+      result.items.length,
+      1,
+      "history-only watched show is included in merged items",
+    );
+    assertEq(result.items[0].watched, true, "history-only show is marked watched");
+    assertEq(
+      result.items[0].episodes_watched,
+      1,
+      "history-only show counts the watched special",
+    );
+    assertEq(
+      result.items[0].watch_history_episodes?.[0]?.season,
+      0,
+      "S00 history is preserved on the hydrated item",
+    );
+    assertEq(
+      result.items[0].watch_history_episodes?.[0]?.episode,
+      1,
+      "special episode number is preserved on the hydrated item",
+    );
+  }
+
+  console.log("\n[74] orphaned local history state triggers repair full refresh");
+  {
+    const stub = await import("./stub-obsidian");
+    const show = {
+      title: "State Orphan Show",
+      year: 2026,
+      ids: { trakt: 555002, slug: "state-orphan-show-2026", tmdb: 999002 },
+      overview: "Already in local history state.",
+      runtime: 45,
+      country: "cn",
+      genres: ["reality"],
+      rating: 7.1,
+      votes: 10,
+      certification: "",
+      language: "zh",
+      status: "returning series",
+    };
+    stub.resetRequestUrlMock((req) => {
+      if (req.url.includes("/sync/watched/shows")) {
+        return { status: 200, json: [], headers: {} };
+      }
+      if (
+        req.url.includes("/sync/history/episodes") &&
+        req.url.includes("start_at=")
+      ) {
+        return { status: 200, json: [], headers: {} };
+      }
+      if (req.url.includes("/sync/history/episodes")) {
+        return {
+          status: 200,
+          json: [
+            {
+              id: 990002,
+              watched_at: "2026-05-20T06:47:00.000Z",
+              action: "watch",
+              type: "episode",
+              show,
+              episode: {
+                season: 0,
+                number: 1,
+                title: "Special 1",
+                ids: { trakt: 880002, tmdb: 770002 },
+              },
+            },
+          ],
+          headers: {},
+        };
+      }
+      return { status: 200, json: [], headers: {} };
+    });
+
+    const settings = withSettings({
+      clientId: "client",
+      accessToken: "access",
+      refreshToken: "refresh",
+      tokenExpiresAt: Date.now() + 86_400_000,
+      syncMovies: false,
+      syncShows: true,
+      syncWatchlist: false,
+      syncWatched: true,
+      syncWatchedDetail: true,
+      syncFavorites: false,
+      syncRatings: false,
+      historyFullRefreshIntervalDays: 999,
+      historyState: {
+        ...EMPTY_HISTORY_STATE,
+        byShow: {
+          555002: [
+            {
+              season: 0,
+              episode: 1,
+              title: "Special 1",
+              watched_at: ["2026-05-20T06:47:00.000Z"],
+            },
+          ],
+        },
+        knownEventIds: [990002],
+        lastIncrementalSyncAt: "2026-05-20T06:47:00.000Z",
+        lastFullRefreshAt: "2026-05-20T06:40:00.000Z",
+      },
+    });
+    const engine = new SyncEngine(
+      new stub.App() as never,
+      settings,
+      async () => undefined,
+    );
+
+    const result = await engine.syncDailyNotesData();
+    const historyCalls = stub.requestUrlMock.calls.filter((call) =>
+      call.url.includes("/sync/history/episodes"),
+    );
+    assertEq(result.status, "updated", "Daily-only data sync completes");
+    assertEq(
+      historyCalls.length,
+      2,
+      "orphaned local state triggers incremental then repair full refresh",
+    );
+    assertTrue(
+      historyCalls[0].url.includes("start_at="),
+      "first history call is incremental",
+    );
+    assertTrue(
+      !historyCalls[1].url.includes("start_at="),
+      "repair history call is a full refresh",
+    );
+    assertEq(
+      result.items.length,
+      1,
+      "repair full refresh seeds the missing history-only show",
+    );
+    assertEq(
+      result.items[0].watch_history_episodes?.[0]?.season,
+      0,
+      "repaired item keeps the S00 history",
     );
   }
 
