@@ -786,6 +786,48 @@ export const STRINGS = {
     en: "How often to sync. Minimum 5, maximum 360.",
     "zh-CN": "同步频率。最小 5，最大 360。",
   },
+  "syncBehavior.communityStats.policy.name": {
+    en: "Community rating/votes update policy",
+    "zh-CN": "社区评分/投票数更新策略",
+  },
+  "syncBehavior.communityStats.policy.desc": {
+    en: "Controls how often Trakt community rating and vote count are written to media notes. Smart reduces Obsidian Sync version churn from tiny rating/vote changes.",
+    "zh-CN":
+      "控制 Trakt 社区评分和投票数写入媒体笔记的频率。Smart 可减少微小评分/投票变化造成的 Obsidian Sync 历史版本增长。",
+  },
+  "syncBehavior.communityStats.policy.everySync": {
+    en: "Every sync",
+    "zh-CN": "每次同步",
+  },
+  "syncBehavior.communityStats.policy.smart": {
+    en: "Smart",
+    "zh-CN": "Smart",
+  },
+  "syncBehavior.communityStats.interval.name": {
+    en: "Minimum update interval (days)",
+    "zh-CN": "最短更新间隔（天）",
+  },
+  "syncBehavior.communityStats.interval.desc": {
+    en: "In Smart mode, write community rating/votes after this many days even if the change is small. Minimum 1, maximum 30.",
+    "zh-CN":
+      "Smart 模式下，即使变化很小，超过这个天数后也允许写入社区评分/投票数。最小 1，最大 30。",
+  },
+  "syncBehavior.communityStats.ratingThreshold.name": {
+    en: "Rating change threshold",
+    "zh-CN": "评分变化阈值",
+  },
+  "syncBehavior.communityStats.ratingThreshold.desc": {
+    en: "In Smart mode, write when the absolute community rating change is at least this value.",
+    "zh-CN": "Smart 模式下，社区评分的绝对变化大于等于此值时写入。",
+  },
+  "syncBehavior.communityStats.votesThreshold.name": {
+    en: "Votes change threshold (%)",
+    "zh-CN": "投票数变化阈值（%）",
+  },
+  "syncBehavior.communityStats.votesThreshold.desc": {
+    en: "In Smart mode, write when the absolute vote-count change is at least this percentage.",
+    "zh-CN": "Smart 模式下，投票数的绝对变化比例大于等于此百分比时写入。",
+  },
   "syncBehavior.overwrite.name": {
     en: "Overwrite existing note body",
     "zh-CN": "覆盖现有笔记正文",

@@ -41,7 +41,7 @@ export const POSTER_SIZES = [
 
 export type PosterSize = (typeof POSTER_SIZES)[number];
 
-export const BUILD_CREATED_AT = "2026-05-17 16:53:16 PDT";
+export const BUILD_CREATED_AT = "2026-05-21 15:35:00 PDT";
 
 /**
  * [0.5.0] Settings that can be marked as "device-local" per spec 0003.
@@ -362,6 +362,10 @@ export interface TraktrSettings {
   syncOnStartup: boolean;
   overwriteExisting: boolean;
   deleteRemovedItems: boolean;
+  communityStatsUpdatePolicy: CommunityStatsUpdatePolicy;
+  communityStatsRefreshIntervalDays: number;
+  communityRatingChangeThreshold: number;
+  communityVotesChangeThresholdPercent: number;
 
   // ── [0.2.0] TMDB cache ──
   // Persistent across syncs and across devices (lives in data.json which
@@ -407,6 +411,7 @@ export interface TraktrSettings {
 }
 
 export type DailyNotesSyncMode = "default" | "incremental";
+export type CommunityStatsUpdatePolicy = "every_sync" | "smart";
 
 export const DEFAULT_MOVIE_TEMPLATE_EN = `![poster]({{poster_url}})
 
@@ -1221,6 +1226,10 @@ export const DEFAULT_SETTINGS: TraktrSettings = {
   syncOnStartup: false,
   overwriteExisting: false,
   deleteRemovedItems: false,
+  communityStatsUpdatePolicy: "smart",
+  communityStatsRefreshIntervalDays: 7,
+  communityRatingChangeThreshold: 0.1,
+  communityVotesChangeThresholdPercent: 5,
 
   // [0.2.0] TMDB cache + history state defaults
   tmdbCache: {},
@@ -2394,6 +2403,73 @@ export class TraktrSettingTab extends PluginSettingTab {
           ),
         "autoSyncIntervalMinutes",
       );
+    }
+
+    new Setting(containerEl)
+      .setName(t("syncBehavior.communityStats.policy.name"))
+      .setDesc(t("syncBehavior.communityStats.policy.desc"))
+      .addDropdown((dd) =>
+        dd
+          .addOption(
+            "every_sync",
+            t("syncBehavior.communityStats.policy.everySync"),
+          )
+          .addOption("smart", t("syncBehavior.communityStats.policy.smart"))
+          .setValue(this.plugin.settings.communityStatsUpdatePolicy)
+          .onChange(async (value) => {
+            this.plugin.settings.communityStatsUpdatePolicy =
+              value as CommunityStatsUpdatePolicy;
+            await this.plugin.saveSettings();
+            this.display();
+          }),
+      );
+
+    if (this.plugin.settings.communityStatsUpdatePolicy === "smart") {
+      new Setting(containerEl)
+        .setName(t("syncBehavior.communityStats.interval.name"))
+        .setDesc(t("syncBehavior.communityStats.interval.desc"))
+        .addSlider((slider) =>
+          slider
+            .setLimits(1, 30, 1)
+            .setValue(this.plugin.settings.communityStatsRefreshIntervalDays)
+            .setDynamicTooltip()
+            .onChange(async (value) => {
+              this.plugin.settings.communityStatsRefreshIntervalDays = value;
+              await this.plugin.saveSettings();
+            }),
+        );
+
+      new Setting(containerEl)
+        .setName(t("syncBehavior.communityStats.ratingThreshold.name"))
+        .setDesc(t("syncBehavior.communityStats.ratingThreshold.desc"))
+        .addText((text) =>
+          text
+            .setPlaceholder("0.1")
+            .setValue(String(this.plugin.settings.communityRatingChangeThreshold))
+            .onChange(async (value) => {
+              const parsed = Number(value);
+              this.plugin.settings.communityRatingChangeThreshold =
+                Number.isFinite(parsed) && parsed >= 0 ? parsed : 0.1;
+              await this.plugin.saveSettings();
+            }),
+        );
+
+      new Setting(containerEl)
+        .setName(t("syncBehavior.communityStats.votesThreshold.name"))
+        .setDesc(t("syncBehavior.communityStats.votesThreshold.desc"))
+        .addSlider((slider) =>
+          slider
+            .setLimits(1, 100, 1)
+            .setValue(
+              this.plugin.settings.communityVotesChangeThresholdPercent,
+            )
+            .setDynamicTooltip()
+            .onChange(async (value) => {
+              this.plugin.settings.communityVotesChangeThresholdPercent =
+                value;
+              await this.plugin.saveSettings();
+            }),
+        );
     }
 
     new Setting(containerEl)

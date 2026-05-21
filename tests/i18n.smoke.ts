@@ -17,6 +17,7 @@ import {
   renderWatchHistorySection,
   renderWatchHistoryList,
   updateManagedBodySections,
+  applyCommunityStatsPolicy,
   frontmatterWouldChange,
   mergeFrontmatterIntoContent,
   valuesEqual,
@@ -1719,7 +1720,96 @@ void (async () => {
     );
   }
 
-  console.log("\n[29b] mergeFrontmatterIntoContent — repairs malformed plugin YAML");
+  console.log("\n[29a] applyCommunityStatsPolicy — smart dampens tiny changes");
+  {
+    const settings = withSettings({
+      communityStatsUpdatePolicy: "smart",
+      communityStatsRefreshIntervalDays: 7,
+      communityRatingChangeThreshold: 0.1,
+      communityVotesChangeThresholdPercent: 5,
+    });
+    const newData = {
+      trakt_rating: 8.54,
+      trakt_votes: 1030,
+      trakt_synced_at: "2026-05-21T12:00:00.000Z",
+    };
+    const existingFm = {
+      trakt_rating: 8.5,
+      trakt_votes: 1000,
+      trakt_synced_at: "2026-05-20T12:00:00.000Z",
+      trakt_community_stats_synced_at: "2026-05-20T12:00:00.000Z",
+    };
+    const result = applyCommunityStatsPolicy(
+      newData,
+      existingFm,
+      settings,
+      "2026-05-21T12:00:00.000Z",
+    );
+    assertEq(result.data.trakt_rating, 8.5, "small rating change keeps old value");
+    assertEq(result.data.trakt_votes, 1000, "small votes change keeps old value");
+    assertTrue(result.statsChanged, "statsChanged reports source drift");
+    assertTrue(!result.statsWriteAllowed, "smart policy blocks tiny changes before interval");
+  }
+
+  console.log("\n[29b] applyCommunityStatsPolicy — thresholds and interval allow writes");
+  {
+    const settings = withSettings({
+      communityStatsUpdatePolicy: "smart",
+      communityStatsRefreshIntervalDays: 7,
+      communityRatingChangeThreshold: 0.1,
+      communityVotesChangeThresholdPercent: 5,
+    });
+    const oldFm = {
+      trakt_rating: 8.5,
+      trakt_votes: 1000,
+      trakt_synced_at: "2026-05-20T12:00:00.000Z",
+      trakt_community_stats_synced_at: "2026-05-20T12:00:00.000Z",
+    };
+
+    const ratingHit = applyCommunityStatsPolicy(
+      {
+        trakt_rating: 8.6,
+        trakt_votes: 1000,
+        trakt_synced_at: "2026-05-21T12:00:00.000Z",
+      },
+      oldFm,
+      settings,
+      "2026-05-21T12:00:00.000Z",
+    );
+    assertEq(ratingHit.data.trakt_rating, 8.6, "rating threshold writes new rating");
+    assertEq(
+      ratingHit.data.trakt_community_stats_synced_at,
+      "2026-05-21T12:00:00.000Z",
+      "rating threshold stamps community stats timestamp",
+    );
+
+    const votesHit = applyCommunityStatsPolicy(
+      {
+        trakt_rating: 8.5,
+        trakt_votes: 950,
+        trakt_synced_at: "2026-05-21T12:00:00.000Z",
+      },
+      oldFm,
+      settings,
+      "2026-05-21T12:00:00.000Z",
+    );
+    assertEq(votesHit.data.trakt_votes, 950, "votes percentage threshold uses absolute change");
+
+    const intervalHit = applyCommunityStatsPolicy(
+      {
+        trakt_rating: 8.54,
+        trakt_votes: 1030,
+        trakt_synced_at: "2026-05-28T12:00:00.000Z",
+      },
+      oldFm,
+      settings,
+      "2026-05-28T12:00:00.000Z",
+    );
+    assertEq(intervalHit.data.trakt_rating, 8.54, "interval expiry writes small rating drift");
+    assertEq(intervalHit.data.trakt_votes, 1030, "interval expiry writes small votes drift");
+  }
+
+  console.log("\n[29c] mergeFrontmatterIntoContent — repairs malformed plugin YAML");
   {
     const corrupted = [
       "---",
@@ -1771,7 +1861,7 @@ void (async () => {
     );
   }
 
-  console.log("\n[29c] mergeFrontmatterIntoContent — adds frontmatter when absent");
+  console.log("\n[29d] mergeFrontmatterIntoContent — adds frontmatter when absent");
   {
     const merged = mergeFrontmatterIntoContent("# Body only", {
       trakt_title: "Only Title",

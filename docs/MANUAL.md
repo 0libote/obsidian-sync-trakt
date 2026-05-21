@@ -166,6 +166,10 @@ Tag notes are topic files you link to from your notes, creating a graph of conne
 | Sync on startup | off | Automatically run a sync when Obsidian loads (5-second delay). |
 | Auto-sync | off | Periodically sync in the background. |
 | Auto-sync interval | 60 min | How often to auto-sync (5–360 minutes). Visible only when auto-sync is enabled. |
+| Community rating/votes update policy | Smart | Controls how often `trakt_rating` and `trakt_votes` are written to media notes. `Every sync` preserves the old behavior. `Smart` writes only after the configured interval or when rating/vote changes reach your thresholds. |
+| Minimum update interval | 7 days | _(only shown in Smart mode)_ Allows community rating/vote writes after this many days even if the change is small. |
+| Rating change threshold | `0.1` | _(only shown in Smart mode)_ Writes when the absolute Trakt community rating change is at least this value. |
+| Votes change threshold | `5%` | _(only shown in Smart mode)_ Writes when the absolute Trakt vote-count change is at least this percentage. |
 | Overwrite existing note body | off | When **off**, only frontmatter is updated and the note body is preserved. When **on**, the full note is regenerated from the template on every sync — any edits you've made to the note body will be permanently lost. |
 | Remove notes for deleted items | off | When **on**, notes for items no longer in any enabled sync source are moved to trash. |
 
@@ -232,6 +236,7 @@ All fields below are prefixed with the configured **Property prefix** (default `
 | `trakt_imdb_url` | string | IMDB page URL. |
 | `trakt_poster_url` | string | TMDB poster image URL. |
 | `trakt_synced_at` | string | ISO timestamp of when sync last *actually modified this note*. Since 0.3.0, only updates when the note's content changes — not on every sync. Useful as a Bases / Dataview sort key for "recently changed" views. |
+| `trakt_community_stats_synced_at` | string | ISO timestamp of when Smart mode last wrote `trakt_rating` / `trakt_votes`. Existing notes may not have this until community stats are next allowed to update. |
 | `trakt_tag_notes` | list | Wikilinks to tag note files (when "Add tag notes to frontmatter" is on). |
 | `tags` | list | Auto-generated Obsidian tags (when "Add tags" is on). |
 | `trakt_original_title` | string | English/source-language title. Only present when **Metadata language** is set. |
