@@ -28,6 +28,7 @@ export interface CommunityStatsPolicyResult {
   data: Record<string, unknown>;
   statsChanged: boolean;
   statsWriteAllowed: boolean;
+  statsBaselineToPreserve?: unknown;
 }
 
 /** Format an ISO-8601 timestamp as `YYYY-MM-DD HH:MM` in the user's local
@@ -475,8 +476,8 @@ export function applyCommunityStatsPolicy(
     1,
     settings.communityStatsRefreshIntervalDays || 7,
   );
-  const lastStatsAt =
-    existingFm[statsSyncedAtKey] ?? existingFm[syncedAtKey] ?? "";
+  const existingStatsSyncedAt = existingFm[statsSyncedAtKey];
+  const lastStatsAt = existingStatsSyncedAt ?? existingFm[syncedAtKey] ?? "";
   const elapsedDays = elapsedDaysSince(lastStatsAt, nowIso);
   const intervalDue = elapsedDays === undefined || elapsedDays >= intervalDays;
 
@@ -502,7 +503,16 @@ export function applyCommunityStatsPolicy(
   if (!writeAllowed) {
     if (oldRating !== undefined) data[ratingKey] = oldRating;
     if (oldVotes !== undefined) data[votesKey] = oldVotes;
-    return { data, statsChanged: true, statsWriteAllowed: false };
+    const statsBaselineToPreserve =
+      existingStatsSyncedAt === undefined || existingStatsSyncedAt === null
+        ? existingFm[syncedAtKey]
+        : undefined;
+    return {
+      data,
+      statsChanged: true,
+      statsWriteAllowed: false,
+      statsBaselineToPreserve,
+    };
   }
 
   data[statsSyncedAtKey] = nowIso;

@@ -1749,6 +1749,47 @@ void (async () => {
     assertEq(result.data.trakt_votes, 1000, "small votes change keeps old value");
     assertTrue(result.statsChanged, "statsChanged reports source drift");
     assertTrue(!result.statsWriteAllowed, "smart policy blocks tiny changes before interval");
+
+    const legacyResult = applyCommunityStatsPolicy(
+      newData,
+      {
+        trakt_rating: 8.5,
+        trakt_votes: 1000,
+        trakt_synced_at: "2026-05-20T12:00:00.000Z",
+      },
+      settings,
+      "2026-05-21T12:00:00.000Z",
+    );
+    assertEq(
+      legacyResult.statsBaselineToPreserve,
+      "2026-05-20T12:00:00.000Z",
+      "legacy notes expose old synced_at as a baseline to preserve",
+    );
+    assertTrue(
+      !("trakt_community_stats_synced_at" in legacyResult.data),
+      "legacy baseline does not force a standalone stats timestamp write",
+    );
+
+    const preservedBaselineResult = applyCommunityStatsPolicy(
+      {
+        trakt_rating: 8.54,
+        trakt_votes: 1030,
+        trakt_synced_at: "2026-05-27T12:00:00.000Z",
+      },
+      {
+        trakt_rating: 8.5,
+        trakt_votes: 1000,
+        trakt_synced_at: "2026-05-21T12:00:00.000Z",
+        trakt_community_stats_synced_at: "2026-05-20T12:00:00.000Z",
+      },
+      settings,
+      "2026-05-27T12:00:00.000Z",
+    );
+    assertEq(
+      preservedBaselineResult.data.trakt_rating,
+      8.54,
+      "preserved baseline prevents unrelated synced_at from postponing interval",
+    );
   }
 
   console.log("\n[29b] applyCommunityStatsPolicy — thresholds and interval allow writes");

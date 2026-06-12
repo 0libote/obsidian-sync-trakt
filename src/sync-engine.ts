@@ -1493,12 +1493,13 @@ export class SyncEngine {
             const content = await readContent();
             policyExistingFm = parseFrontmatter(content).frontmatter;
           }
-          const { data: newData } = applyCommunityStatsPolicy(
+          const policyResult = applyCommunityStatsPolicy(
             baseData,
             policyExistingFm,
             this.settings,
           );
-          const fmChanged =
+          let newData = policyResult.data;
+          let fmChanged =
             !existingFm ||
             frontmatterWouldChange(newData, existingFm, [syncedAtKey]);
 
@@ -1516,6 +1517,20 @@ export class SyncEngine {
               this.settings,
             );
             bodyChanged = oldContent !== newContent;
+          }
+
+          if (
+            (fmChanged || bodyChanged) &&
+            policyResult.statsBaselineToPreserve !== undefined
+          ) {
+            newData = {
+              ...newData,
+              [`${this.settings.propertyPrefix}community_stats_synced_at`]:
+                policyResult.statsBaselineToPreserve,
+            };
+            fmChanged =
+              !existingFm ||
+              frontmatterWouldChange(newData, existingFm, [syncedAtKey]);
           }
 
           if (!fmChanged && !bodyChanged) {
