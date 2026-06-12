@@ -7,6 +7,32 @@ plugin is submitted to Obsidian's official Community Plugins directory.
 
 For the full design rationale behind major changes, see [`specs/`](specs/).
 
+## 1.3.0 — 2026-05-21
+
+**Smarter media-note writes.** This release reduces Obsidian Sync version
+history churn for large Trakt libraries.
+
+### Added
+
+- New **Community rating/votes update policy** setting under
+  **Settings -> Sync -> Sync behavior**.
+- `Every sync` keeps the old behavior for users who want every Trakt
+  community rating/vote change written immediately.
+- `Smart` writes `trakt_rating` and `trakt_votes` only when the configured
+  minimum interval has elapsed, or when the absolute rating/vote change
+  reaches the user's thresholds.
+- Smart mode records `trakt_community_stats_synced_at` when community
+  stats are actually written. Older notes fall back to `trakt_synced_at`
+  for the initial timing baseline so upgrades do not immediately rewrite
+  the whole library.
+
+### Fixed
+
+- Media-note sync now performs a final no-op guard before writing. If a
+  temporary Obsidian frontmatter-cache miss would only refresh
+  `trakt_synced_at`, the plugin skips the write instead of creating a
+  timestamp-only Obsidian Sync history version.
+
 ## 1.2.1 — 2026-05-20
 
 **Daily Notes sync boundary fixes.** This release keeps full sync and

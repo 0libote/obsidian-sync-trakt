@@ -163,6 +163,10 @@ Tag notes 是你筆記之間相互連結的主題檔案，建構關係圖譜。*
 | Sync on startup | off | Obsidian 啟動時自動同步（延遲 5 秒）。 |
 | Auto-sync | off | 後台定時同步。 |
 | Auto-sync interval | 60 min | 自動同步頻率（5-360 分鐘）。僅在自動同步開啟時顯示。 |
+| Community rating/votes update policy | Smart | 控制 `trakt_rating` 和 `trakt_votes` 寫入媒體筆記的頻率。`Every sync` 保持舊行為；`Smart` 只在超過設定間隔，或評分/投票數變化達到閾值時寫入。 |
+| Minimum update interval | 7 days | _（僅 Smart 模式顯示）_ 即使變化很小，超過這個天數後也允許寫入社群評分/投票數。 |
+| Rating change threshold | `0.1` | _（僅 Smart 模式顯示）_ Trakt 社群評分的絕對變化大於等於此值時寫入。 |
+| Votes change threshold | `5%` | _（僅 Smart 模式顯示）_ Trakt 投票數的絕對變化比例大於等於此百分比時寫入。 |
 | Overwrite existing note body | off | **關閉**時只更新 frontmatter，正文保留。**開啟**時每次同步從範本重新產生整個筆記 —— 你對正文的修改會永久遺失。 |
 | Remove notes for deleted items | off | **開啟**時，已不在任何啟用同步來源裡的項目對應的筆記會被移到資源回收筒。 |
 
@@ -229,6 +233,7 @@ Tag notes 是你筆記之間相互連結的主題檔案，建構關係圖譜。*
 | `trakt_imdb_url` | string | IMDB 頁面 URL。 |
 | `trakt_poster_url` | string | TMDB 海報圖片 URL。 |
 | `trakt_synced_at` | string | 同步最近一次**真正修改這條筆記**的 ISO 時間戳。0.3.0 起只在筆記內容實際有變化時才更新 —— 不是每次 sync 都刷新。可作為 Bases / Dataview「最近變更」視圖的排序鍵。 |
+| `trakt_community_stats_synced_at` | string | Smart 模式最近一次真正寫入 `trakt_rating` / `trakt_votes` 的 ISO 時間戳。已有筆記可能要等到社群統計下一次被允許更新時才出現。 |
 | `trakt_tag_notes` | list | tag note 檔案的 wikilink（"Add tag notes to frontmatter" 開啟時）。 |
 | `tags` | list | 自動產生的 Obsidian 標籤（"Add tags" 開啟時）。 |
 | `trakt_original_title` | string | 英文 / 源語言標題。僅在 **Metadata language** 設定時存在。 |

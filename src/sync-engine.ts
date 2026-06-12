@@ -34,6 +34,7 @@ import { ensureValidToken } from "./trakt-auth";
 import {
   renderNote,
   buildFrontmatterData,
+  applyCommunityStatsPolicy,
   frontmatterWouldChange,
   mergeFrontmatterIntoContent,
   updateManagedBodySections,
@@ -678,6 +679,35 @@ export async function findMatchingIdentityFile(
   }
 
   return match;
+}
+
+function communityStatsCreatedAtOption(
+  settings: TraktrSettings,
+): { communityStatsSyncedAt?: string } {
+  if (settings.communityStatsUpdatePolicy !== "smart") return {};
+  return { communityStatsSyncedAt: new Date().toISOString() };
+}
+
+function buildManagedUpdateContent(
+  oldContent: string,
+  newData: Record<string, unknown>,
+  item: NormalizedItem,
+  settings: TraktrSettings,
+  bodyChanged: boolean,
+): string {
+  const withFrontmatter = mergeFrontmatterIntoContent(oldContent, newData);
+  if (!bodyChanged) return withFrontmatter;
+  return updateManagedBodySections(withFrontmatter, item, settings);
+}
+
+function dataWithExistingSyncedAt(
+  data: Record<string, unknown>,
+  existingFm: Record<string, unknown>,
+  syncedAtKey: string,
+): Record<string, unknown> {
+  const existingSyncedAt = existingFm[syncedAtKey];
+  if (existingSyncedAt === undefined || existingSyncedAt === null) return data;
+  return { ...data, [syncedAtKey]: existingSyncedAt };
 }
 
 // ── Sync Engine ──
@@ -1381,7 +1411,14 @@ export class SyncEngine {
               );
             }
             const filePath = normalizePath(`${folderPath}/${filename}.md`);
-            await this.app.vault.create(filePath, renderNote(item, this.settings));
+            await this.app.vault.create(
+              filePath,
+              renderNote(
+                item,
+                this.settings,
+                communityStatsCreatedAtOption(this.settings),
+              ),
+            );
             result.added++;
             continue;
           }
@@ -1428,8 +1465,15 @@ export class SyncEngine {
           // user data is stale). See spec 0002 §"Edge cases" for the
           // matrix and rationale.
 
-          const newData = buildFrontmatterData(item, this.settings);
+          const baseData = buildFrontmatterData(item, this.settings);
           const syncedAtKey = `${this.settings.propertyPrefix}synced_at`;
+          let cachedContent: string | undefined;
+          const readContent = async (): Promise<string> => {
+            if (cachedContent === undefined) {
+              cachedContent = await this.app.vault.cachedRead(existingFile);
+            }
+            return cachedContent;
+          };
 
           // Read existing frontmatter via Obsidian's metadata cache
           // (returns properly-typed values: numbers stay numbers, arrays
@@ -1441,7 +1485,21 @@ export class SyncEngine {
           const existingFm = cached?.frontmatter as
             | Record<string, unknown>
             | undefined;
-          const fmChanged =
+          let policyExistingFm = existingFm;
+          if (
+            !policyExistingFm &&
+            this.settings.communityStatsUpdatePolicy === "smart"
+          ) {
+            const content = await readContent();
+            policyExistingFm = parseFrontmatter(content).frontmatter;
+          }
+          const policyResult = applyCommunityStatsPolicy(
+            baseData,
+            policyExistingFm,
+            this.settings,
+          );
+          let newData = policyResult.data;
+          let fmChanged =
             !existingFm ||
             frontmatterWouldChange(newData, existingFm, [syncedAtKey]);
 
@@ -1452,13 +1510,27 @@ export class SyncEngine {
           // that may have just happened in this same iteration.
           let bodyChanged = false;
           if (this.settings.syncWatchedDetail) {
-            const oldContent = await this.app.vault.cachedRead(existingFile);
+            const oldContent = await readContent();
             const newContent = updateManagedBodySections(
               oldContent,
               item,
               this.settings,
             );
             bodyChanged = oldContent !== newContent;
+          }
+
+          if (
+            (fmChanged || bodyChanged) &&
+            policyResult.statsBaselineToPreserve !== undefined
+          ) {
+            newData = {
+              ...newData,
+              [`${this.settings.propertyPrefix}community_stats_synced_at`]:
+                policyResult.statsBaselineToPreserve,
+            };
+            fmChanged =
+              !existingFm ||
+              frontmatterWouldChange(newData, existingFm, [syncedAtKey]);
           }
 
           if (!fmChanged && !bodyChanged) {
@@ -1470,21 +1542,51 @@ export class SyncEngine {
             continue;
           }
 
+          const currentContent = await readContent();
+          const currentFm = parseFrontmatter(currentContent).frontmatter;
+          const stableSyncedAtData = dataWithExistingSyncedAt(
+            newData,
+            currentFm,
+            syncedAtKey,
+          );
+          const stableSyncedAtContent = buildManagedUpdateContent(
+            currentContent,
+            stableSyncedAtData,
+            item,
+            this.settings,
+            bodyChanged,
+          );
+          if (stableSyncedAtContent === currentContent) {
+            result.unchanged++;
+            continue;
+          }
+
           // At least one real change. Rebuild the plugin-owned frontmatter
           // fields textually instead of using processFrontMatter. This keeps
           // the update path able to repair notes whose YAML is already
           // malformed, because Obsidian's frontmatter parser throws before
           // invoking our callback in that case.
           await this.app.vault.process(existingFile, (oldContent) => {
-            const withFrontmatter = mergeFrontmatterIntoContent(
-              oldContent,
+            const latestFm = parseFrontmatter(oldContent).frontmatter;
+            const latestStableData = dataWithExistingSyncedAt(
               newData,
+              latestFm,
+              syncedAtKey,
             );
-            if (!bodyChanged) return withFrontmatter;
-            return updateManagedBodySections(
-              withFrontmatter,
+            const latestStableContent = buildManagedUpdateContent(
+              oldContent,
+              latestStableData,
               item,
               this.settings,
+              bodyChanged,
+            );
+            if (latestStableContent === oldContent) return oldContent;
+            return buildManagedUpdateContent(
+              oldContent,
+              newData,
+              item,
+              this.settings,
+              bodyChanged,
             );
           });
           result.updated++;

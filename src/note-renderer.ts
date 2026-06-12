@@ -18,6 +18,18 @@ export const WATCH_HISTORY_MARKER_END = "%% trakt:watch-history:end %%";
 
 const WATCH_HISTORY_MARKER_RE =
   /%% trakt:watch-history:start %%[\s\S]*?%% trakt:watch-history:end %%/;
+const THRESHOLD_EPSILON = 1e-9;
+
+export interface FrontmatterBuildOptions {
+  communityStatsSyncedAt?: string | null;
+}
+
+export interface CommunityStatsPolicyResult {
+  data: Record<string, unknown>;
+  statsChanged: boolean;
+  statsWriteAllowed: boolean;
+  statsBaselineToPreserve?: unknown;
+}
 
 /** Format an ISO-8601 timestamp as `YYYY-MM-DD HH:MM` in the user's local
  * timezone. Trakt records `watched_at` in UTC, but a viewer cares about the
@@ -226,6 +238,7 @@ function buildTemplateContext(
 export function buildFrontmatterData(
   item: NormalizedItem,
   settings: TraktrSettings,
+  options: FrontmatterBuildOptions = {},
 ): Record<string, unknown> {
   const p = settings.propertyPrefix;
   // When localization is off (effective language is empty), trakt_original_*
@@ -250,6 +263,10 @@ export function buildFrontmatterData(
   data[`${p}certification`] = item.certification;
   data[`${p}rating`] = item.rating;
   data[`${p}votes`] = item.votes;
+  if (options.communityStatsSyncedAt !== undefined) {
+    data[`${p}community_stats_synced_at`] =
+      options.communityStatsSyncedAt || null;
+  }
   data[`${p}country`] = item.country;
   data[`${p}language`] = item.language;
   data[`${p}status`] = item.status;
@@ -355,9 +372,10 @@ export function buildFrontmatterData(
  */
 export function renderNote(
   item: NormalizedItem,
-  settings: TraktrSettings
+  settings: TraktrSettings,
+  options: FrontmatterBuildOptions = {},
 ): string {
-  const fmData = buildFrontmatterData(item, settings);
+  const fmData = buildFrontmatterData(item, settings, options);
   const frontmatter = toFrontmatter(fmData);
 
   const template =
@@ -379,6 +397,126 @@ export function renderFrontmatterOnly(
   settings: TraktrSettings
 ): string {
   return toFrontmatter(buildFrontmatterData(item, settings));
+}
+
+function numericValue(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function timestampMs(value: unknown): number | undefined {
+  if (typeof value !== "string" || value.trim() === "") return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function elapsedDaysSince(value: unknown, nowIso: string): number | undefined {
+  const then = timestampMs(value);
+  const now = Date.parse(nowIso);
+  if (then === undefined || !Number.isFinite(now)) return undefined;
+  return Math.max(0, (now - then) / 86_400_000);
+}
+
+function valuesDiffer(a: number | undefined, b: number | undefined): boolean {
+  if (a === undefined || b === undefined) return a !== b;
+  return a !== b;
+}
+
+function votesChangePercent(
+  oldVotes: number | undefined,
+  newVotes: number | undefined,
+): number {
+  if (oldVotes === undefined || newVotes === undefined) {
+    return oldVotes === newVotes ? 0 : Infinity;
+  }
+  if (oldVotes === 0) return newVotes === 0 ? 0 : Infinity;
+  return (Math.abs(newVotes - oldVotes) / Math.abs(oldVotes)) * 100;
+}
+
+/**
+ * In Smart mode, dampen tiny Trakt community rating/vote changes so they do
+ * not rewrite hundreds of media notes and inflate Obsidian Sync version
+ * history. This only affects `trakt_rating` and `trakt_votes`; personal
+ * ratings (`trakt_my_rating`) and all other source data still sync normally.
+ */
+export function applyCommunityStatsPolicy(
+  newData: Record<string, unknown>,
+  existingFm: Record<string, unknown> | undefined,
+  settings: TraktrSettings,
+  nowIso: string = new Date().toISOString(),
+): CommunityStatsPolicyResult {
+  const p = settings.propertyPrefix;
+  const ratingKey = `${p}rating`;
+  const votesKey = `${p}votes`;
+  const statsSyncedAtKey = `${p}community_stats_synced_at`;
+  const syncedAtKey = `${p}synced_at`;
+
+  const data = { ...newData };
+
+  if (settings.communityStatsUpdatePolicy !== "smart" || !existingFm) {
+    return { data, statsChanged: false, statsWriteAllowed: true };
+  }
+
+  const oldRating = numericValue(existingFm[ratingKey]);
+  const oldVotes = numericValue(existingFm[votesKey]);
+  const newRating = numericValue(newData[ratingKey]);
+  const newVotes = numericValue(newData[votesKey]);
+  const statsChanged =
+    valuesDiffer(oldRating, newRating) || valuesDiffer(oldVotes, newVotes);
+
+  if (!statsChanged) {
+    return { data, statsChanged: false, statsWriteAllowed: false };
+  }
+
+  const intervalDays = Math.max(
+    1,
+    settings.communityStatsRefreshIntervalDays || 7,
+  );
+  const existingStatsSyncedAt = existingFm[statsSyncedAtKey];
+  const lastStatsAt = existingStatsSyncedAt ?? existingFm[syncedAtKey] ?? "";
+  const elapsedDays = elapsedDaysSince(lastStatsAt, nowIso);
+  const intervalDue = elapsedDays === undefined || elapsedDays >= intervalDays;
+
+  const ratingThreshold = Math.max(
+    0,
+    settings.communityRatingChangeThreshold ?? 0.1,
+  );
+  const ratingChange =
+    oldRating === undefined || newRating === undefined
+      ? Infinity
+      : Math.abs(newRating - oldRating);
+  const ratingDue = ratingChange + THRESHOLD_EPSILON >= ratingThreshold;
+
+  const votesThreshold = Math.max(
+    0,
+    settings.communityVotesChangeThresholdPercent ?? 5,
+  );
+  const votesDue =
+    votesChangePercent(oldVotes, newVotes) + THRESHOLD_EPSILON >=
+    votesThreshold;
+  const writeAllowed = intervalDue || ratingDue || votesDue;
+
+  if (!writeAllowed) {
+    if (oldRating !== undefined) data[ratingKey] = oldRating;
+    if (oldVotes !== undefined) data[votesKey] = oldVotes;
+    const statsBaselineToPreserve =
+      existingStatsSyncedAt === undefined || existingStatsSyncedAt === null
+        ? existingFm[syncedAtKey]
+        : undefined;
+    return {
+      data,
+      statsChanged: true,
+      statsWriteAllowed: false,
+      statsBaselineToPreserve,
+    };
+  }
+
+  data[statsSyncedAtKey] = nowIso;
+  return { data, statsChanged: true, statsWriteAllowed: true };
 }
 
 function frontmatterMatch(content: string): RegExpMatchArray | null {

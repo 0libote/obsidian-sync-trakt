@@ -42,6 +42,13 @@ export interface ReleaseHighlight {
  */
 export const RELEASE_LOG: ReleaseLogEntry[] = [
   {
+    version: "1.3.0",
+    titleEn: "Smarter media-note writes",
+    titleZh: "更智能的媒体笔记写入",
+    en: "Media-note sync now avoids timestamp-only rewrites when Obsidian's frontmatter cache is temporarily unavailable, preventing needless Obsidian Sync version-history entries where only trakt_synced_at changed. A new Sync behavior setting controls Trakt community rating/vote writes: Every sync preserves the old behavior, while Smart writes trakt_rating and trakt_votes only after the configured interval or when the absolute rating/vote change crosses your thresholds. Smart mode adds trakt_community_stats_synced_at when community stats are actually written, and falls back to the existing trakt_synced_at on older notes so upgrades do not immediately rewrite the whole library.",
+    zh: "媒体笔记同步现在会避免在 Obsidian frontmatter 缓存暂时不可用时产生只有 trakt_synced_at 变化的无意义重写，减少 Obsidian Sync 历史版本膨胀。同步行为里新增 Trakt 社区评分/投票数写入策略：Every sync 保持旧行为；Smart 只在超过设定间隔，或评分/投票数的绝对变化达到阈值时，才写入 trakt_rating 和 trakt_votes。Smart 模式会在社区统计真正写入时新增 trakt_community_stats_synced_at，并对旧笔记回退使用已有的 trakt_synced_at，避免升级后立刻重写整个资料库。",
+  },
+  {
     version: "1.2.1",
     titleEn: "Daily Notes sync boundary fixes",
     titleZh: "Daily Notes 同步边界修复",
@@ -134,6 +141,10 @@ export const RELEASE_LOG: ReleaseLogEntry[] = [
 ];
 
 export const RECENT_UPDATE_HIGHLIGHTS: ReleaseHighlight[] = [
+  {
+    en: "Smart community rating/vote writes reduce media-note churn from tiny Trakt rating changes.",
+    zh: "Smart 社区评分/投票数写入可减少 Trakt 微小评分变化造成的媒体笔记改写。",
+  },
   {
     en: "Daily Notes can auto-sync independently from full media-note sync, using the same source data without rewriting media notes.",
     zh: "Daily Notes 可独立于完整媒体笔记同步自动刷新，复用同一套来源数据，但不重写媒体笔记。",
