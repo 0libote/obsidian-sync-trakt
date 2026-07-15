@@ -177,10 +177,10 @@ Directory page: https://community.obsidian.md/plugins/sync-trakt
 ```bash
 git clone https://github.com/o1xhack/obsidian-sync-trakt.git
 cd obsidian-sync-trakt
-npm install
-npm run build      # produces main.js
-npm run lint
-npm run test:i18n  # smoke tests
+bun ci
+bun run build      # produces main.js
+bun run lint
+bun run test:i18n  # smoke tests
 ```
 
 Then copy `main.js`, `manifest.json`, `styles.css` to `<vault>/.obsidian/plugins/sync-trakt/`.
