@@ -4,6 +4,7 @@ name: Release Obsidian plugin
 # tab. Idempotent: if a Release already exists at the tag (typically
 # because scripts/release.sh created it locally), this workflow exits
 # early without re-uploading or overwriting assets.
+# Bun is pinned to the same stable version declared by package.json.
 on:
   push:
     tags:
